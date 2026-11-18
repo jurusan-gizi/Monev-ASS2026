@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Monev Gizi Tahap II – Sulsel</title>
+<meta name="theme-color" content="#C8102E">
+<meta name="description" content="Daftar Tilik Monitoring Evaluasi Tahap II Program Gizi – Dinas Kesehatan Provinsi Sulawesi Selatan">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+:root{
+  --merah:#C8102E; --merah-tua:#9E0B22; --emas:#E3A812; --emas-muda:#FFF4D1;
+  --hijau:#008C45; --hijau-muda:#E3F5EB; --biru:#0072BC; --abu:#F4F5F7;
+  --teks:#1F2328; --redup:#667085; --garis:#E1E4E8; --r:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--abu);color:var(--teks);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+.hide{display:none!important}
+
+/* Header */
+header{background:linear-gradient(135deg,var(--merah),var(--merah-tua));color:#fff;padding:12px 16px calc(14px);
+  padding-top:calc(12px + env(safe-area-inset-top));position:sticky;top:0;z-index:10;border-bottom:4px solid var(--emas)}
+.hd{display:flex;align-items:center;gap:12px;max-width:760px;margin:auto}
+.hd img{width:46px;height:auto;background:#fff;border-radius:10px;padding:3px}
+.hd h1{font-size:17px;margin:0;line-height:1.2}
+.hd small{display:block;opacity:.9;font-size:12px;font-weight:400}
+.hd .sp{flex:1}
+.ibtn{background:rgba(255,255,255,.15);border:0;color:#fff;width:40px;height:40px;border-radius:50%;font-size:19px;cursor:pointer}
+
+main{max-width:760px;margin:auto;padding:16px 14px 110px}
+
+/* Status bar */
+.status{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;font-size:13px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:99px;background:#fff;border:1px solid var(--garis);font-weight:600}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--hijau)}
+.off .dot{background:#999}
+.pill.wait{background:var(--emas-muda);border-color:#F2D27A;color:#7A5A00}
+.pill.ok{background:var(--hijau-muda);border-color:#A8DDBF;color:#05603A}
+
+/* Buttons */
+.btn{border:0;border-radius:12px;padding:13px 18px;font-weight:700;cursor:pointer;display:inline-flex;gap:8px;align-items:center;justify-content:center}
+.btn-p{background:var(--merah);color:#fff}
+.btn-g{background:var(--hijau);color:#fff}
+.btn-o{background:#fff;border:1.5px solid var(--garis);color:var(--teks)}
+.btn-big{width:100%;font-size:18px;padding:18px;box-shadow:0 4px 14px rgba(200,16,46,.25)}
+.btn:disabled{opacity:.5}
+
+/* Cards */
+.card{background:#fff;border-radius:var(--r);padding:16px;border:1px solid var(--garis);margin-bottom:12px}
+h2{font-size:16px;margin:22px 0 10px;color:var(--redup);text-transform:uppercase;letter-spacing:.04em}
+.rec{display:flex;gap:12px;align-items:flex-start}
+.rec .ic{font-size:26px;line-height:1}
+.rec .t{flex:1;min-width:0}
+.rec b{display:block}
+.rec .m{font-size:13px;color:var(--redup)}
+.badge{font-size:11px;font-weight:700;padding:3px 8px;border-radius:99px;white-space:nowrap}
+.b-draf{background:#EEF0F3;color:#475467}
+.b-wait{background:var(--emas-muda);color:#7A5A00}
+.b-ok{background:var(--hijau-muda);color:#05603A}
+.acts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.acts .btn{padding:8px 12px;font-size:14px;border-radius:10px}
+.empty{text-align:center;color:var(--redup);padding:30px 10px}
+
+/* Pilih jenjang */
+.jenjang{display:grid;gap:12px}
+.jcard{display:flex;gap:14px;align-items:center;text-align:left;background:#fff;border:2px solid var(--garis);border-radius:var(--r);padding:18px;cursor:pointer;width:100%}
+.jcard:hover,.jcard:focus{border-color:var(--merah)}
+.jcard .ic{font-size:34px}
+.jcard b{font-size:17px;display:block}
+.jcard span{font-size:13px;color:var(--redup)}
+
+/* Form */
+label.f{display:block;font-weight:600;font-size:14px;margin:12px 0 5px}
+input[type=text],input[type=date],select,textarea{width:100%;padding:12px;border:1.5px solid var(--garis);border-radius:10px;background:#fff}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--biru);box-shadow:0 0 0 3px rgba(0,114,188,.15)}
+textarea{min-height:76px;resize:vertical}
+.req::after{content:" *";color:var(--merah)}
+
+.step-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:13px;color:var(--redup)}
+.bar{height:6px;background:var(--garis);border-radius:9px;overflow:hidden;margin-bottom:12px}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--emas),var(--hijau));transition:width .25s}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:12px;scrollbar-width:none}
+.chip{flex:0 0 auto;min-width:36px;height:36px;border-radius:50%;border:1.5px solid var(--garis);background:#fff;font-weight:700;cursor:pointer}
+.chip.done{background:var(--hijau-muda);border-color:var(--hijau);color:#05603A}
+.chip.on{background:var(--merah);border-color:var(--merah);color:#fff}
+.ind-title{font-size:19px;margin:0 0 10px;color:var(--merah-tua)}
+.bukti{background:var(--emas-muda);border-left:4px solid var(--emas);padding:10px 12px;border-radius:8px;font-size:14px}
+.radios{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.radios label{flex:1 1 30%;border:1.5px solid var(--garis);border-radius:10px;padding:9px;text-align:center;font-size:13px;font-weight:600;cursor:pointer;background:#fff}
+.radios input{display:none}
+.radios input:checked+span{color:#fff}
+.radios label:has(input:checked){background:var(--biru);border-color:var(--biru);color:#fff}
+.q{margin-top:14px}
+.q .ql{font-size:14.5px;margin-bottom:6px}
+.q .ql b{color:var(--merah)}
+.sec{margin-top:18px;padding-top:14px;border-top:1px dashed var(--garis)}
+.hint{font-size:12.5px;color:var(--redup);margin-top:2px}
+
+/* Bottom nav */
+.navbot{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--garis);padding:10px 14px calc(10px + env(safe-area-inset-bottom));z-index:9}
+.navbot .in{max-width:760px;margin:auto;display:flex;gap:10px}
+.navbot .btn{flex:1}
+
+footer{text-align:center;font-size:12px;color:var(--redup);padding:18px 10px 8px;line-height:1.6}
+footer b{color:var(--merah-tua)}
+
+/* Modal & toast */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.modal .card{max-width:520px;width:100%;margin:0}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:60;max-width:90%;text-align:center}
+
+/* Ringkasan */
+.sum-item{padding:10px 0;border-bottom:1px solid var(--garis);display:flex;gap:10px;align-items:center}
+.sum-item:last-child{border:0}
+.sum-item .n{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex:0 0 auto}
+.n.ok{background:var(--hijau-muda);color:#05603A}.n.no{background:#FDECEC;color:var(--merah)}
+
+/* Cetak */
+#printArea{display:none}
+@media print{
+  @page{size:A4 landscape;margin:10mm}
+  body{background:#fff}
+  header,main,.navbot,.toast,.modal,footer.app{display:none!important}
+  #printArea{display:block;font:10pt/1.35 Arial,sans-serif;color:#000}
+  #printArea .kop{display:flex;align-items:center;gap:12px;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:8px}
+  #printArea .kop img{width:48px}
+  #printArea h3{margin:0;font-size:13pt}
+  #printArea table{width:100%;border-collapse:collapse}
+  #printArea td,#printArea th{border:1px solid #000;padding:4px 5px;vertical-align:top}
+  #printArea th{background:#eee}
+  #printArea .id td{border:0;padding:1px 4px}
+  #printArea tr{page-break-inside:avoid}
+  #printArea .ttd{margin-top:18px;display:flex;justify-content:flex-end;text-align:center}
+  #printArea .dev{margin-top:10px;font-size:8pt;color:#555;text-align:center}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="hd">
+    <img src="icons/logo-sulsel.png" alt="Logo Sulawesi Selatan">
+    <div><h1>Monev Gizi Tahap II<small>Dinas Kesehatan Provinsi Sulawesi Selatan</small></h1></div>
+    <div class="sp"></div>
+    <button class="ibtn" id="btnSet" title="Pengaturan" aria-label="Pengaturan">⚙️</button>
+  </div>
+</header>
+
+<main id="app"></main>
+
+<div class="navbot hide" id="navbot"><div class="in" id="navin"></div></div>
+<div id="printArea"></div>
+<div id="modalRoot"></div>
+
+<script src="config.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
