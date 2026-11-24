@@ -1,81 +1,175 @@
 /**
- * Monev Gizi Tahap II – Backend Google Sheet
+ * Monev Capaian Gizi ASS – Backend Google Sheet + Google Drive
  * Developed : Manjilala, S.Gz, M.Gizi | Poltekkes Kemenkes Makassar | DPD PERSAGI Sulsel
  *
- * CARA PASANG:
- * 1. Buat Google Sheet baru → Ekstensi → Apps Script → hapus isi, tempel seluruh kode ini → Simpan.
- * 2. Jalankan fungsi `setup` sekali (izinkan akses).
- * 3. Terapkan → Deployment baru → Jenis: Aplikasi web
- *      Jalankan sebagai: Saya | Yang memiliki akses: Siapa saja → Terapkan.
- * 4. Salin URL (berakhiran /exec) → tempel di config.js atau di menu ⚙️ aplikasi.
+ * CARA PASANG (ringkas – lengkapnya di README.md):
+ * 1. Buat Google Sheet BARU → Ekstensi → Apps Script → hapus isi, tempel seluruh kode ini → Simpan.
+ * 2. Periksa ROOT_FOLDER_ID di bawah (folder induk dokumentasi ASS di Google Drive).
+ * 3. Pilih fungsi `setup` → Jalankan → izinkan akses. Semua sheet akan dibuat otomatis.
+ * 4. Isi sheet MASTER_WILAYAH, MASTER_TIM, dan cek PENGATURAN_LAPORAN.
+ * 5. Terapkan → Deployment baru → Aplikasi web: Jalankan sebagai "Saya", Akses "Siapa saja" → salin URL /exec.
  */
-const SH_RINGKAS = 'Monev_Ringkas';
-const SH_DETAIL  = 'Monev_Detail';
-const H_RINGKAS = ['ID','Waktu Terima','Jenjang','Kabupaten/Kota','Unit/Lokasi','Tanggal Kunjungan','Tim Verifikasi',
-  'Pendamping','Periode Data','Indikator Terisi','Dibuat (HP)','Diubah (HP)','Perangkat'];
-const H_DETAIL = ['ID','Waktu Terima','Jenjang','Kabupaten/Kota','Unit/Lokasi','Tanggal Kunjungan','Tim Verifikasi',
-  'No','Indikator','Status Bukti','Hasil a','Hasil b','Hasil c','Hasil d','Kendala/Masalah','Upaya yang Akan Dilakukan'];
+const ROOT_FOLDER_ID = '1J0kBlBFOxLz2P18qOaspdKmeyqccOy4I'; // folder "ASS 2026 - Dokumentasi Kegiatan"
+const SUBFOLDER = 'Monev Capaian';
+
+const SH = {
+  WIL: 'MASTER_WILAYAH', TIM: 'MASTER_TIM', SET: 'PENGATURAN_LAPORAN',
+  MONEV: 'MONEV_CAPAIAN', BALITA: 'DAFTAR_BALITA_TL', SEPAKAT: 'KESEPAKATAN_TL', FOTO: 'FOTO_MONEV', LAP: 'LAPORAN_PERJADIN'
+};
+const HEADERS = {
+  MASTER_WILAYAH: ['Kabupaten/Kota', 'Kecamatan', 'Desa/Kelurahan'],
+  MASTER_TIM: ['Kode Tim', 'Nama Tim', 'Kabupaten/Kota Tugas', 'Nama Anggota', 'Pangkat/Golongan', 'NIP'],
+  PENGATURAN_LAPORAN: ['Kunci', 'Nilai', 'Keterangan'],
+  MONEV_CAPAIAN: ['ID', 'Waktu Terima'], DAFTAR_BALITA_TL: ['ID', 'Waktu Terima'], KESEPAKATAN_TL: ['ID', 'Waktu Terima'],
+  FOTO_MONEV: ['ID', 'Waktu Terima'], LAPORAN_PERJADIN: ['ID', 'Waktu Terima']
+};
+const DEFAULT_SET = [
+  ['kepada', 'Yth. Kepala Dinas Kesehatan Provinsi Sulawesi Selatan', 'Baris "Kepada" nota dinas'],
+  ['dari', 'Pelaksana Kegiatan', 'Baris "Dari"'],
+  ['tembusan', 'Pejabat Pelaksana Teknis Kegiatan (PPTK)', 'Baris "Tembusan"'],
+  ['sifat', 'Biasa', 'Baris "Sifat"'],
+  ['lampiran', '1 (satu) Exp', 'Baris "Lampiran"'],
+  ['hal', 'Laporan Perjalanan Dinas Monitoring dan Evaluasi Capaian Program Gizi Aksi Stop Stunting Tahun 2026', 'PERLU DIKONFIRMASI ke Dinkes'],
+  ['nama_kegiatan', 'Monitoring dan Evaluasi Capaian Program Gizi Aksi Stop Stunting', 'Dipakai di B.1 dan surat tugas. PERLU DIKONFIRMASI'],
+  ['tujuan', 'Melaksanakan monitoring dan evaluasi capaian program gizi Aksi Stop Stunting di desa lokus untuk memastikan pemantauan sasaran, pemberian bantuan gizi, serta tindak lanjut balita dan ibu hamil berjalan sesuai ketentuan program', 'A.1 Tujuan. PERLU DIKONFIRMASI'],
+  ['dpa', 'DPA Tahun Anggaran 2026 Nomor : ……… tanggal ………, Program ………', 'A.2.a Dasar DPA – isi sesuai DPA kegiatan ASS'],
+  ['kota', 'Makassar', 'Tempat penandatanganan'],
+  ['label_ttd', 'Pelaksana, SPD,', 'Label di atas tanda tangan']
+];
 
 function setup() {
   const ss = SpreadsheetApp.getActive();
-  [[SH_RINGKAS, H_RINGKAS], [SH_DETAIL, H_DETAIL]].forEach(([n, h]) => {
+  Object.keys(HEADERS).forEach(n => {
     const sh = ss.getSheetByName(n) || ss.insertSheet(n);
     if (sh.getLastRow() === 0) {
-      sh.appendRow(h);
-      sh.getRange(1, 1, 1, h.length).setFontWeight('bold').setBackground('#C8102E').setFontColor('#ffffff');
+      sh.appendRow(HEADERS[n]);
+      sh.getRange(1, 1, 1, HEADERS[n].length).setFontWeight('bold').setBackground('#C8102E').setFontColor('#ffffff');
       sh.setFrozenRows(1);
     }
   });
+  const set = ss.getSheetByName(SH.SET);
+  if (set.getLastRow() === 1) set.getRange(2, 1, DEFAULT_SET.length, 3).setValues(DEFAULT_SET);
+  const tim = ss.getSheetByName(SH.TIM);
+  if (tim.getLastRow() === 1) tim.getRange(2, 1, 2, 6).setValues([
+    ['CONTOH01', 'Tim 1 Soppeng', 'Kabupaten Soppeng', 'Nama Anggota Pertama, S.Gz', 'Penata Tk. I / III d', '198800000000000000'],
+    ['CONTOH01', 'Tim 1 Soppeng', 'Kabupaten Soppeng', 'Nama Anggota Kedua, SKM', 'Penata / III c', '199000000000000000']]);
+  const wil = ss.getSheetByName(SH.WIL);
+  if (wil.getLastRow() === 1) wil.getRange(2, 1, 2, 3).setValues([['Kabupaten Soppeng', 'Contoh Kecamatan', 'Contoh Desa A'], ['Kabupaten Soppeng', 'Contoh Kecamatan', 'Contoh Desa B']]);
+  ['MONEV_CAPAIAN', 'DAFTAR_BALITA_TL', 'KESEPAKATAN_TL', 'FOTO_MONEV', 'LAPORAN_PERJADIN'].forEach(n => ss.setActiveSheet(ss.getSheetByName(n)));
+  ss.setActiveSheet(ss.getSheetByName(SH.TIM));
+  DriveApp.getFolderById(ROOT_FOLDER_ID); // memastikan izin Drive
 }
 
-function doGet(e) {
-  return json({ ok: true, sheet: SpreadsheetApp.getActive().getName(), waktu: new Date() });
-}
+function doGet() { return json({ ok: true, app: 'Monev Capaian Gizi ASS', sheet: SpreadsheetApp.getActive().getName() }); }
 
 function doPost(e) {
-  const lock = LockService.getScriptLock();
+  let d;
+  try { d = JSON.parse(e.postData.contents); } catch (err) { return json({ ok: false, error: 'Data tidak terbaca' }); }
   try {
-    lock.waitLock(30000);
-    setup();
-    const d = JSON.parse(e.postData.contents);
-    if (d.action !== 'simpan') return json({ ok: false, error: 'aksi tidak dikenal' });
-    const h = d.header, now = new Date();
-    const ss = SpreadsheetApp.getActive();
+    const tim = cariTim(d.kode);
+    if (!tim) return json({ ok: false, error: 'Kode tim tidak terdaftar' });
+    if (d.action === 'login') return json(login(tim));
+    if (d.action === 'upload') return json(upload(d));
+    const lock = LockService.getScriptLock(); lock.waitLock(30000);
+    try {
+      if (d.action === 'simpanMonev') return json(simpanMonev(d, tim));
+      if (d.action === 'simpanLaporan') return json(simpanLaporan(d, tim));
+    } finally { lock.releaseLock(); }
+    return json({ ok: false, error: 'Aksi tidak dikenal' });
+  } catch (err) { return json({ ok: false, error: String(err && err.message || err) }); }
+}
 
-    // Ringkas: upsert berdasarkan ID
-    const r1 = [h.id, now, h.jenjang, h.kab, h.unit, h.tanggal, h.tim, h.pendamping, h.periode, h.terisi, h.dibuat, h.diubah, h.perangkat];
-    const shR = ss.getSheetByName(SH_RINGKAS);
-    const row = findRow(shR, h.id);
-    if (row) shR.getRange(row, 1, 1, r1.length).setValues([r1]); else shR.appendRow(r1);
+/* ---------- Tim & master ---------- */
+function rows(name) {
+  const sh = SpreadsheetApp.getActive().getSheetByName(name); if (!sh || sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn()).getDisplayValues();
+}
+function cariTim(kode) {
+  kode = String(kode || '').trim().toUpperCase(); if (!kode) return null;
+  const r = rows(SH.TIM).filter(x => String(x[0]).trim().toUpperCase() === kode);
+  if (!r.length) return null;
+  const kab = [...new Set(r.flatMap(x => String(x[2]).split(/[,;]/).map(s => s.trim()).filter(Boolean)))];
+  return { kode: kode, nama: r[0][1] || kode, kab: kab, anggota: r.map(x => ({ nama: x[3], pangkat: x[4], nip: x[5] })).filter(a => a.nama) };
+}
+function login(tim) {
+  const wilayah = rows(SH.WIL).filter(x => tim.kab.indexOf(String(x[0]).trim()) >= 0)
+    .map(x => ({ kab: String(x[0]).trim(), kec: String(x[1]).trim(), desa: String(x[2]).trim() })).filter(w => w.desa);
+  const pengaturan = {}; rows(SH.SET).forEach(x => { if (x[0]) pengaturan[String(x[0]).trim()] = x[1]; });
+  return { ok: true, tim: { kode: tim.kode, nama: tim.nama, kab: tim.kab }, anggota: tim.anggota, wilayah: wilayah, pengaturan: pengaturan,
+    monev: ambilJson(SH.MONEV, tim.kode), laporan: ambilJson(SH.LAP, tim.kode) };
+}
+function ambilJson(name, kode) {
+  const sh = SpreadsheetApp.getActive().getSheetByName(name); if (!sh || sh.getLastRow() < 2) return [];
+  const h = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0], ik = h.indexOf('Kode Tim'), ij = h.indexOf('JSON');
+  if (ik < 0 || ij < 0) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn()).getValues()
+    .filter(r => String(r[ik]).toUpperCase() === kode && r[ij]).map(r => { try { return JSON.parse(r[ij]); } catch (e) { return null; } }).filter(Boolean);
+}
 
-    // Detail: hapus baris lama ID ini, lalu tulis ulang 10 indikator
-    const shD = ss.getSheetByName(SH_DETAIL);
-    deleteRows(shD, h.id);
-    const rows = d.detail.map(x => {
-      const a = [0, 1, 2, 3].map(i => x.jawaban[i] ? x.jawaban[i].a : '');
-      return [h.id, now, h.jenjang, h.kab, h.unit, h.tanggal, h.tim, x.no, x.indikator, x.status_bukti, ...a, x.kendala, x.upaya];
-    });
-    shD.getRange(shD.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+/* ---------- Drive ---------- */
+function folderPath(parts) {
+  let f = DriveApp.getFolderById(ROOT_FOLDER_ID);
+  [SUBFOLDER].concat(parts).forEach(p => {
+    p = String(p || 'Lainnya').trim() || 'Lainnya';
+    const it = f.getFoldersByName(p); f = it.hasNext() ? it.next() : f.createFolder(p);
+  });
+  return f;
+}
+function upload(d) {
+  const m = String(d.data).match(/^data:([^;]+);base64,(.*)$/);
+  if (!m) return { ok: false, error: 'Format file tidak valid' };
+  const folder = folderPath(d.path || []);
+  const old = folder.getFilesByName(d.name); while (old.hasNext()) old.next().setTrashed(true); // ganti versi lama
+  const file = folder.createFile(Utilities.newBlob(Utilities.base64Decode(m[2]), m[1], d.name));
+  try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) { /* kebijakan domain */ }
+  return { ok: true, id: file.getId(), url: file.getUrl() };
+}
 
-    return json({ ok: true, id: h.id });
-  } catch (err) {
-    return json({ ok: false, error: String(err) });
-  } finally {
-    lock.releaseLock();
+/* ---------- Simpan ---------- */
+function simpanMonev(d, tim) {
+  const now = new Date();
+  const row = Object.assign({}, d.row, { 'Waktu Terima': now, 'JSON': d.json });
+  upsert(SH.MONEV, d.id, row);
+  replaceChildren(SH.BALITA, d.id, (d.balita || []).map(r => Object.assign({ 'Waktu Terima': now }, r)));
+  replaceChildren(SH.SEPAKAT, d.id, (d.sepakat || []).map(r => Object.assign({ 'Waktu Terima': now }, r)));
+  replaceChildren(SH.FOTO, d.id, (d.foto || []).map(r => Object.assign({ 'Waktu Terima': now }, r)));
+  return { ok: true, id: d.id };
+}
+function simpanLaporan(d, tim) {
+  upsert(SH.LAP, d.id, Object.assign({}, d.row, { 'Waktu Terima': new Date(), 'JSON': d.json }));
+  return { ok: true, id: d.id };
+}
+
+/* Tambah kolom baru otomatis bila belum ada; kolom JSON selalu di paling kanan */
+function ensureHeaders(sh, keys) {
+  let h = sh.getRange(1, 1, 1, Math.max(1, sh.getLastColumn())).getValues()[0].map(String);
+  const miss = keys.filter(k => h.indexOf(k) < 0 && k !== 'JSON');
+  if (miss.length) {
+    let pos = h.indexOf('JSON');
+    if (pos >= 0) { sh.insertColumnsBefore(pos + 1, miss.length); sh.getRange(1, pos + 1, 1, miss.length).setValues([miss]); }
+    else sh.getRange(1, h.length + 1, 1, miss.length).setValues([miss]);
+    h = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String);
   }
+  if (keys.indexOf('JSON') >= 0 && h.indexOf('JSON') < 0) { sh.getRange(1, h.length + 1).setValue('JSON'); h.push('JSON'); }
+  sh.getRange(1, 1, 1, h.length).setFontWeight('bold').setBackground('#C8102E').setFontColor('#ffffff');
+  return h;
 }
-
-function findRow(sh, id) {
-  const n = sh.getLastRow(); if (n < 2) return 0;
-  const ids = sh.getRange(2, 1, n - 1, 1).getValues();
-  for (let i = 0; i < ids.length; i++) if (ids[i][0] === id) return i + 2;
-  return 0;
+function toRow(h, obj) { return h.map(k => obj[k] === undefined || obj[k] === null ? '' : obj[k]); }
+function upsert(name, id, obj) {
+  const sh = SpreadsheetApp.getActive().getSheetByName(name);
+  const h = ensureHeaders(sh, Object.keys(obj));
+  const r = toRow(h, Object.assign({ 'ID': id }, obj));
+  const n = sh.getLastRow(), ids = n > 1 ? sh.getRange(2, 1, n - 1, 1).getValues().map(x => x[0]) : [];
+  const i = ids.indexOf(id);
+  if (i >= 0) sh.getRange(i + 2, 1, 1, r.length).setValues([r]); else sh.getRange(n + 1, 1, 1, r.length).setValues([r]);
 }
-function deleteRows(sh, id) {
-  const n = sh.getLastRow(); if (n < 2) return;
-  const ids = sh.getRange(2, 1, n - 1, 1).getValues();
-  for (let i = ids.length - 1; i >= 0; i--) if (ids[i][0] === id) sh.deleteRow(i + 2);
+function replaceChildren(name, id, list) {
+  const sh = SpreadsheetApp.getActive().getSheetByName(name);
+  const n = sh.getLastRow();
+  if (n > 1) { const ids = sh.getRange(2, 1, n - 1, 1).getValues(); for (let i = ids.length - 1; i >= 0; i--) if (ids[i][0] === id) sh.deleteRow(i + 2); }
+  if (!list.length) return;
+  const keys = [...new Set(list.flatMap(o => Object.keys(o)))];
+  const h = ensureHeaders(sh, keys);
+  sh.getRange(sh.getLastRow() + 1, 1, list.length, h.length).setValues(list.map(o => toRow(h, Object.assign({ 'ID': id }, o))));
 }
-function json(o) {
-  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
-}
+function json(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }

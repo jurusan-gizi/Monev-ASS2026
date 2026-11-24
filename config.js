@@ -1,8 +1,8 @@
 /* ====== PENGATURAN ======
-   Tempel URL Web App Google Apps Script (berakhiran /exec) di bawah ini.
-   URL juga bisa diisi/diubah langsung dari aplikasi lewat tombol ⚙️. */
+   Tempel URL Web App Google Apps Script (berakhiran /exec) di bawah ini. */
 const CONFIG = {
-  SCRIPT_URL: '',
-  APP_NAME: 'Monev Gizi Tahap II',
-  INSTANSI: 'Dinas Kesehatan Provinsi Sulawesi Selatan'
+  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxu-uVZWDD70OIwMjwOcMMUtEhyAgAuM9eOywrNRj0x5xOAzj5LMD3n8c0uzcMXmHzh5g/exec',
+  APP_NAME: 'Monev Capaian Gizi ASS',
+  INSTANSI: 'Dinas Kesehatan Provinsi Sulawesi Selatan',
+  MAX_FOTO: 5
 };

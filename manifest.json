@@ -1,7 +1,7 @@
 {
-  "name": "Monev Gizi Tahap II – Dinkes Prov. Sulsel",
-  "short_name": "Monev Gizi",
-  "description": "Daftar Tilik Monitoring Evaluasi Tahap II Program Gizi ke Dinkes Kab/Kota, Puskesmas dan Posyandu",
+  "name": "Monev Capaian Gizi ASS – Dinkes Prov. Sulsel",
+  "short_name": "Monev ASS",
+  "description": "Daftar Tilik Monitoring Evaluasi Capaian Program Gizi Aksi Stop Stunting + Laporan Perjadin",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

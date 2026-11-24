@@ -1,52 +1,54 @@
-/* Monev Gizi Tahap II – PWA offline-first, sinkron ke Google Sheet
+/* Monev Capaian Gizi ASS – PWA offline-first, sinkron ke Google Sheet
    Developed : Manjilala, S.Gz, M.Gizi | Poltekkes Kemenkes Makassar | DPD PERSAGI Sulsel */
+const A = window.A = {};
 (() => {
-const KEY = 'monev2_records', KEY_URL = 'monev2_url', KEY_TIM = 'monev2_tim';
+const K = { sess: 'mass_sess', recs: 'mass_recs', url: 'mass_url' };
 const $ = s => document.querySelector(s);
 const app = $('#app'), navbot = $('#navbot'), navin = $('#navin');
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const STATUS_BUKTI = ['Lengkap & sesuai', 'Ada, belum lengkap', 'Tidak ada'];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
+const BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+const fmtTgl = d => { if (!d) return '-'; const [y, m, t] = d.split('-'); return `${+t} ${BULAN[+m - 1]} ${y}`; };
+const fmtWaktu = t => t ? new Date(t).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+const newId = p => p + '-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase();
+const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+Object.assign(A, { $, esc, today, fmtTgl, fmtWaktu, newId, BULAN, load });
 
-/* ---------- Penyimpanan lokal ---------- */
-let recs = [];
-try { recs = JSON.parse(localStorage.getItem(KEY)) || []; } catch { recs = []; }
-const save = () => localStorage.setItem(KEY, JSON.stringify(recs));
-const getUrl = () => (localStorage.getItem(KEY_URL) || CONFIG.SCRIPT_URL || '').trim();
-const find = id => recs.find(r => r.id === id);
-const newId = () => 'MV-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
-const today = () => new Date().toISOString().slice(0, 10);
-const fmtTgl = d => d ? new Date(d + 'T00:00').toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'}) : '-';
-const fmtWaktu = t => t ? new Date(t).toLocaleString('id-ID', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}) : '';
+/* ---------- IndexedDB untuk foto & tanda tangan ---------- */
+const idb = (() => {
+  let dbp;
+  const db = () => dbp || (dbp = new Promise((res, rej) => {
+    const r = indexedDB.open('monev_ass', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('media');
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  }));
+  const tx = async (mode, fn) => { const d = await db(); return new Promise((res, rej) => {
+    const t = d.transaction('media', mode), s = t.objectStore('media'), q = fn(s);
+    t.oncomplete = () => res(q && q.result); t.onerror = () => rej(t.error); }); };
+  return { get: k => tx('readonly', s => s.get(k)), set: (k, v) => tx('readwrite', s => s.put(v, k)), del: k => tx('readwrite', s => s.delete(k)) };
+})();
+A.idb = idb;
 
-function blankRecord(jenjang) {
-  const last = JSON.parse(localStorage.getItem(KEY_TIM) || '{}');
-  return {
-    id: newId(), jenjang, kab: last.kab || '', unit: '', tanggal: today(),
-    tim: last.tim || '', pendamping: '', periode: '',
-    items: JENJANG[jenjang].items.map(it => ({ st: '', h: it.q.map(() => ''), k: '', u: '' })),
-    status: 'draf', synced: false, created: Date.now(), updated: Date.now()
-  };
-}
-const itemDone = it => !!(it.st || it.k.trim() || it.u.trim() || it.h.some(x => x.trim()));
-const countDone = r => r.items.filter(itemDone).length;
+/* ---------- State ---------- */
+let sess = load(K.sess, null);
+let recs = load(K.recs, []);
+const saveRecs = () => localStorage.setItem(K.recs, JSON.stringify(recs));
+const saveSess = () => localStorage.setItem(K.sess, JSON.stringify(sess));
+const getUrl = () => (localStorage.getItem(K.url) || CONFIG.SCRIPT_URL || '').trim();
+A.sess = () => sess; A.recs = () => recs; A.saveRecs = saveRecs;
+const findRec = id => recs.find(r => r.id === id);
 
 /* ---------- UI helpers ---------- */
-function toast(msg, ms = 2600) {
-  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
-  document.body.appendChild(t); setTimeout(() => t.remove(), ms);
-}
+function toast(msg, ms = 2800) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), ms); }
 function modal(html) {
-  const root = $('#modalRoot');
-  root.innerHTML = `<div class="modal"><div class="card">${html}</div></div>`;
-  root.querySelector('.modal').addEventListener('click', e => { if (e.target.classList.contains('modal')) root.innerHTML = ''; });
-  return root;
+  const root = $('#modalRoot'); root.innerHTML = `<div class="modal"><div class="card">${html}</div></div>`;
+  root.querySelector('.modal').addEventListener('click', e => { if (e.target.classList.contains('modal')) closeModal(); });
+  return root.querySelector('.card');
 }
 const closeModal = () => $('#modalRoot').innerHTML = '';
 function confirmBox(msg, okText, onOk) {
-  const root = modal(`<p style="margin-top:0">${msg}</p><div class="acts" style="justify-content:flex-end">
-    <button class="btn btn-o" id="mNo">Batal</button><button class="btn btn-p" id="mOk">${okText}</button></div>`);
-  root.querySelector('#mNo').onclick = closeModal;
-  root.querySelector('#mOk').onclick = () => { closeModal(); onOk(); };
+  const c = modal(`<p style="margin-top:0">${msg}</p><div class="acts" style="justify-content:flex-end"><button class="btn btn-o" data-x>Batal</button><button class="btn btn-p" data-ok>${okText}</button></div>`);
+  c.querySelector('[data-x]').onclick = closeModal; c.querySelector('[data-ok]').onclick = () => { closeModal(); onOk(); };
 }
 function setNav(btns) {
   if (!btns) { navbot.classList.add('hide'); return; }
@@ -54,257 +56,463 @@ function setNav(btns) {
   navin.innerHTML = btns.map((b, i) => `<button class="btn ${b.cls}" data-i="${i}">${b.text}</button>`).join('');
   navin.querySelectorAll('button').forEach(el => el.onclick = () => btns[el.dataset.i].fn());
 }
-const footer = () => `<footer class="app">Developed : <b>Manjilala, S.Gz, M.Gizi</b><br>Poltekkes Kemenkes Makassar | DPD PERSAGI Sulsel</footer>`;
+const footer = () => `<footer>Developed : <b>Manjilala, S.Gz, M.Gizi</b><br>Poltekkes Kemenkes Makassar | DPD PERSAGI Sulsel</footer>`;
+Object.assign(A, { toast, modal, closeModal, confirmBox, setNav, footer, app });
+
+/* Kamus: tandai istilah agar bisa diketuk */
+const kamusRe = new RegExp('(' + Object.keys(KAMUS).sort((a, b) => b.length - a.length).map(k => k.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&')).join('|') + ')', 'g');
+const kam = s => esc(s).replace(kamusRe, m => `<span class="kamus" data-kamus="${m}">${m}</span>`);
+document.addEventListener('click', e => {
+  const k = e.target.closest('[data-kamus]'); if (!k) return;
+  const c = modal(`<b>${esc(k.dataset.kamus)}</b><p>${esc(KAMUS[k.dataset.kamus])}</p><div class="acts" style="justify-content:flex-end"><button class="btn btn-o">Tutup</button></div>`);
+  c.querySelector('button').onclick = closeModal;
+});
+
+/* ---------- API ---------- */
+async function api(action, body = {}) {
+  const url = getUrl(); if (!url) throw new Error('URL server belum diatur');
+  const res = await fetch(url, { method: 'POST', body: JSON.stringify({ action, kode: sess?.kode, ...body }) });
+  const j = await res.json(); if (!j.ok) throw new Error(j.error || 'Server menolak'); return j;
+}
+A.api = api;
+
+/* ---------- Login & master ---------- */
+function loginView(msg) {
+  setNav(null);
+  app.innerHTML = `<div class="card" style="margin-top:20px;text-align:center">
+    <img src="icons/logo-sulsel.png" style="width:84px"><h3 class="t" style="margin-top:8px">Monitoring Evaluasi Capaian<br>Program Gizi Aksi Stop Stunting</h3>
+    <p class="hint">Masukkan kode tim dari Dinas Kesehatan Provinsi. Login pertama perlu internet; setelah itu aplikasi bisa dipakai tanpa sinyal.</p>
+    <input type="password" id="kode" placeholder="Kode tim" style="text-align:center;font-size:20px;letter-spacing:2px" autocomplete="off">
+    ${msg ? `<div class="warn">${esc(msg)}</div>` : ''}
+    <button class="btn btn-p btn-big" id="bLogin" style="margin-top:12px">Masuk</button>
+    <details style="margin-top:14px;text-align:left"><summary class="hint">Pengaturan server</summary>
+      <label class="f">URL Web App Apps Script</label><input type="text" id="lUrl" value="${esc(getUrl())}" placeholder="https://script.google.com/macros/s/…/exec"></details>
+  </div>${footer()}`;
+  $('#bLogin').onclick = async () => {
+    const kode = $('#kode').value.trim(); const u = $('#lUrl').value.trim();
+    if (u) localStorage.setItem(K.url, u);
+    if (!kode) return toast('Isi kode tim');
+    if (!navigator.onLine) return toast('Login pertama perlu internet');
+    $('#bLogin').disabled = true; $('#bLogin').textContent = 'Memeriksa…';
+    try { sess = { kode: kode.toUpperCase() }; await muatMaster(); toast('Selamat datang, ' + sess.tim.nama); home(); }
+    catch (e) { sess = null; localStorage.removeItem(K.sess); loginView(e.message); }
+  };
+}
+async function muatMaster() {
+  const j = await api('login', {});
+  sess = { kode: sess.kode, tim: j.tim, anggota: j.anggota, wilayah: j.wilayah, pengaturan: j.pengaturan, at: Date.now() };
+  saveSess();
+  // gabungkan data monev tim dari server (dari HP anggota lain)
+  (j.monev || []).forEach(s => {
+    const l = findRec(s.id);
+    if (l && (!l.synced || l.updated > s.updated)) return;
+    if (l) Object.assign(l, s, { synced: true, src: l.src || 'server' });
+    else recs.push({ ...s, synced: true, src: 'server' });
+  });
+  saveRecs();
+  if (A.terimaLaporanServer) A.terimaLaporanServer(j.laporan || []);
+}
+A.muatMaster = muatMaster;
+
+function menu() {
+  if (!sess?.tim) return;
+  const c = modal(`<h3 class="t">⚙️ Menu</h3>
+    <div class="mini"><b>${esc(sess.tim.nama)}</b> <span class="m">(kode: ${esc(sess.kode)})</span><div class="m">Wilayah: ${esc(sess.tim.kab.join(', '))}<br>Anggota: ${esc(sess.anggota.map(a => a.nama).join(', '))}<br>Data master diperbarui: ${fmtWaktu(sess.at)}</div></div>
+    <div style="display:grid;gap:8px">
+      <button class="btn btn-o" data-a="master">🔄 Perbarui data master & data tim</button>
+      <button class="btn btn-o" data-a="kamus">📖 Kamus singkat</button>
+      <button class="btn btn-o" data-a="url">🌐 Pengaturan server</button>
+      <button class="btn btn-o" data-a="out" style="color:var(--merah)">🚪 Keluar / ganti kode tim</button>
+      <button class="btn btn-o" data-a="x">Tutup</button></div>`);
+  c.querySelectorAll('[data-a]').forEach(b => b.onclick = async () => {
+    const a = b.dataset.a;
+    if (a === 'x') return closeModal();
+    if (a === 'master') { if (!navigator.onLine) return toast('Perlu internet'); b.textContent = 'Memuat…';
+      try { await muatMaster(); closeModal(); toast('Data master diperbarui'); home(); } catch (e) { toast(e.message); b.textContent = '🔄 Perbarui data master & data tim'; } }
+    if (a === 'kamus') { const k = modal(`<h3 class="t">📖 Kamus Singkat</h3>${Object.entries(KAMUS).map(([x, y]) => `<p style="margin:6px 0"><b>${esc(x)}</b>: ${esc(y)}</p>`).join('')}<button class="btn btn-o" style="width:100%">Tutup</button>`); k.querySelector('button').onclick = closeModal; }
+    if (a === 'url') { const k = modal(`<h3 class="t">🌐 Server</h3><label class="f">URL Web App Apps Script</label><input type="text" id="sUrl" value="${esc(getUrl())}">
+      <div class="acts" style="justify-content:flex-end"><button class="btn btn-o" data-x>Tutup</button><button class="btn btn-p" data-s>Simpan</button></div>`);
+      k.querySelector('[data-x]').onclick = closeModal; k.querySelector('[data-s]').onclick = () => { localStorage.setItem(K.url, $('#sUrl').value.trim()); closeModal(); toast('Disimpan'); sync(true); }; }
+    if (a === 'out') {
+      const pend = recs.filter(r => !r.synced).length + (A.pendingLap ? A.pendingLap() : 0);
+      confirmBox(pend ? `Masih ada <b>${pend}</b> data belum terkirim. Jika keluar, data di HP ini <b>tetap tersimpan</b> dan akan terkirim setelah masuk lagi dengan kode yang sama.` : 'Keluar dari tim ini?', 'Keluar',
+        () => { localStorage.removeItem(K.sess); sess = null; loginView(); });
+    }
+  });
+}
+$('#btnMenu').onclick = () => sess?.tim ? menu() : null;
 
 /* ---------- Beranda ---------- */
 function statusBar() {
-  const on = navigator.onLine, pend = recs.filter(r => r.status === 'final' && !r.synced).length;
-  const url = getUrl();
-  return `<div class="status" id="statusBar">
-    <span class="pill ${on ? '' : 'off'}"><span class="dot"></span>${on ? 'Online' : 'Offline'}</span>
-    ${!url ? `<span class="pill wait">⚠️ Server belum diatur</span>` :
-      pend ? `<span class="pill wait">⏳ ${pend} belum terkirim</span>` : `<span class="pill ok">✔ Semua terkirim</span>`}
-    ${pend && on && url ? `<button class="btn btn-o" style="padding:5px 12px;font-size:13px" id="btnSync">Kirim sekarang</button>` : ''}
-  </div>`;
+  const on = navigator.onLine;
+  const pend = recs.filter(r => r.status === 'final' && !r.synced).length + (A.pendingLap ? A.pendingLap() : 0);
+  return `<div class="status" id="statusBar"><span class="pill ${on ? '' : 'off'}"><span class="dot"></span>${on ? 'Online' : 'Offline'}</span>
+    ${pend ? `<span class="pill wait">⏳ ${pend} belum terkirim</span>` : `<span class="pill ok">✔ Semua terkirim</span>`}
+    ${pend && on ? `<button class="btn btn-o btn-sm" id="btnSync">Kirim sekarang</button>` : ''}</div>`;
 }
-function refreshStatus() {
-  const el = $('#statusBar'); if (!el) return;
-  el.outerHTML = statusBar();
-  const b = $('#btnSync'); if (b) b.onclick = () => sync(true);
-}
+function refreshStatus() { const el = $('#statusBar'); if (!el) return; el.outerHTML = statusBar(); const b = $('#btnSync'); if (b) b.onclick = () => sync(true); }
+A.statusBar = statusBar; A.refreshStatus = refreshStatus;
+
+const badgeStatus = r => r.status === 'draf' ? '<span class="badge b-draf">Draf</span>' : r.synced ? '<span class="badge b-ok">✔ Terkirim</span>' : '<span class="badge b-wait">⏳ Menunggu kirim</span>';
+A.badgeStatus = badgeStatus;
+const badgeWarna = w => w ? `<span class="badge w-${w}">${w}</span>` : '';
+A.badgeWarna = badgeWarna;
 
 function home() {
+  if (!sess?.tim) return loginView();
+  $('#hdSub').textContent = sess.tim.nama + ' · ' + sess.tim.kab.join(', ');
   setNav(null); scrollTo(0, 0);
-  const list = [...recs].sort((a, b) => b.updated - a.updated);
+  const list = recs.filter(r => r.kode === sess.kode).sort((a, b) => (b.tanggal || '').localeCompare(a.tanggal || '') || b.updated - a.updated);
   app.innerHTML = `${statusBar()}
-    <button class="btn btn-p btn-big" id="btnNew">＋ Isi Monev Baru</button>
-    <h2>Riwayat Pengisian</h2>
-    ${list.length ? list.map(r => {
-      const J = JENJANG[r.jenjang];
-      const badge = r.status === 'draf' ? '<span class="badge b-draf">Draf</span>'
-        : r.synced ? '<span class="badge b-ok">✔ Terkirim</span>' : '<span class="badge b-wait">⏳ Menunggu kirim</span>';
-      return `<div class="card"><div class="rec"><div class="ic">${J.ikon}</div><div class="t">
-        <b>${esc(r.unit || '(tanpa nama unit)')}</b>
-        <div class="m">${J.nama} · ${esc(r.kab || '-')}<br>${fmtTgl(r.tanggal)} · ${countDone(r)}/10 indikator</div></div>${badge}</div>
-        <div class="acts">
-          <button class="btn btn-o" data-a="open" data-id="${r.id}">✏️ ${r.status === 'draf' ? 'Lanjutkan' : 'Lihat/Ubah'}</button>
-          <button class="btn btn-o" data-a="print" data-id="${r.id}">🖨️ Cetak</button>
-          <button class="btn btn-o" data-a="del" data-id="${r.id}">🗑️</button>
-        </div></div>`;
-    }).join('') : `<div class="card empty">Belum ada data.<br>Tekan <b>＋ Isi Monev Baru</b> untuk mulai.</div>`}
+    <div class="grid2"><button class="btn btn-p btn-big" id="bNew">＋ Monev Desa</button><button class="btn btn-b btn-big" id="bLap">📄 Laporan Perjadin</button></div>
+    <h2>Desa yang sudah dimonev (${list.length})</h2>
+    ${list.length ? list.map(r => `<div class="card"><div class="rec"><div class="t">
+        <b>Desa ${esc(r.desa || '(belum dipilih)')}</b>
+        <div class="m">Kec. ${esc(r.kec || '-')} · ${esc(r.kab || '-')}<br>${fmtTgl(r.tanggal)} · ${doneCount(r)}/13 indikator${r.src === 'server' ? ' · dari HP anggota lain' : ''}</div></div>
+        <div style="text-align:right">${badgeStatus(r)}<div style="margin-top:4px">${badgeWarna(r.v?.warna_desa)}</div></div></div>
+        <div class="acts"><button class="btn btn-o btn-sm" data-a="open" data-id="${r.id}">✏️ ${r.status === 'draf' ? 'Lanjutkan' : 'Lihat/Ubah'}</button>
+        <button class="btn btn-o btn-sm" data-a="print" data-id="${r.id}">🖨️ Cetak</button>
+        <button class="btn btn-o btn-sm" data-a="del" data-id="${r.id}">🗑️</button></div></div>`).join('')
+      : `<div class="card empty">Belum ada data.<br>Tekan <b>＋ Monev Desa</b> untuk mulai.</div>`}
     ${footer()}`;
-  $('#btnNew').onclick = pilihJenjang;
+  $('#bNew').onclick = () => { const r = blankRec(); recs.push(r); saveRecs(); step(r, 0); };
+  $('#bLap').onclick = () => A.laporanHome();
   const b = $('#btnSync'); if (b) b.onclick = () => sync(true);
   app.querySelectorAll('[data-a]').forEach(el => el.onclick = () => {
-    const r = find(el.dataset.id);
-    if (el.dataset.a === 'open') r.status === 'draf' ? identitas(r) : ringkasan(r);
+    const r = findRec(el.dataset.id);
+    if (el.dataset.a === 'open') step(r, r.status === 'draf' ? 0 : STEPS.length - 1);
     if (el.dataset.a === 'print') cetak(r);
-    if (el.dataset.a === 'del') confirmBox(`Hapus data <b>${esc(r.unit)}</b> dari HP ini?${r.synced ? '<br><small>Data yang sudah terkirim tetap tersimpan di server.</small>' : ''}`,
-      'Hapus', () => { recs = recs.filter(x => x.id !== r.id); save(); home(); });
+    if (el.dataset.a === 'del') confirmBox(`Hapus data Desa <b>${esc(r.desa)}</b> dari HP ini?${r.synced ? '<br><small>Data yang sudah terkirim tetap ada di server.</small>' : ''}`, 'Hapus',
+      () => { recs = recs.filter(x => x.id !== r.id); saveRecs(); home(); });
+  });
+}
+A.home = home;
+
+/* ---------- Record ---------- */
+function blankRec() {
+  const kab = sess.tim.kab.length === 1 ? sess.tim.kab[0] : '';
+  return { id: newId('MC'), kode: sess.kode, kab, kec: '', desa: '', tanggal: today(),
+    tim: sess.anggota.map(a => a.nama).join(', '), pendamping: '', periode: '',
+    v: {}, kendala: {}, rencana: {}, balita: [], sepakat: [{}, {}, {}], ulang: '',
+    ttd: { tim: { nama: '' }, desa: { nama: '' }, kader: { nama: '' } }, foto: [],
+    status: 'draf', synced: false, created: Date.now(), updated: Date.now() };
+}
+const touch = r => { r.updated = Date.now(); r.synced = false; saveRecs(); };
+const isi = x => Array.isArray(x) ? x.length > 0 : (x !== undefined && x !== null && String(x).trim() !== '');
+const indDone = (r, it) => it.q.some(q => q.f.some(f => f.type !== 'calc' && isi(r.v[f.k]))) || isi(r.kendala[it.no]) || isi(r.rencana[it.no]);
+const doneCount = r => IND.filter(it => indDone(r, it)).length;
+A.indDone = indDone; A.isi = isi;
+
+const STEPS = ['id', ...IND.slice(0, 9).map(i => i.no), 'balita', ...IND.slice(9).map(i => i.no), 'sepakat', 'foto', 'ringkas'];
+const stepLabel = s => ({ id: 'Identitas', balita: 'Daftar Balita', sepakat: 'Kesepakatan & TTD', foto: 'Foto', ringkas: 'Ringkasan' }[s] || 'Indikator ' + s);
+const chipLabel = s => ({ id: 'ID', balita: '👶', sepakat: '✍️', foto: '📷', ringkas: '✔' }[s] || s);
+const stepDone = (r, s) => s === 'id' ? !!(r.desa && r.tanggal) : s === 'balita' ? r.balita.length > 0 : s === 'sepakat' ? r.sepakat.some(p => isi(p.masalah)) : s === 'foto' ? r.foto.length > 0 : s === 'ringkas' ? r.status === 'final' : indDone(r, IND.find(i => i.no === s));
+
+function head(r, i) {
+  const s = STEPS[i];
+  return `<div class="step-top"><span>${r.desa ? 'Desa ' + esc(r.desa) : 'Monev desa baru'}</span><span>${stepLabel(s)}</span></div>
+    <div class="bar"><i style="width:${(i + 1) / STEPS.length * 100}%"></i></div>
+    <div class="chips">${STEPS.map((x, n) => `<button class="chip ${n === i ? 'on' : stepDone(r, x) ? 'done' : ''}" data-step="${n}">${chipLabel(x)}</button>`).join('')}</div>`;
+}
+function step(r, i) {
+  scrollTo(0, 0);
+  const s = STEPS[i];
+  if (s === 'id') viewId(r, i); else if (s === 'balita') viewBalita(r, i); else if (s === 'sepakat') viewSepakat(r, i);
+  else if (s === 'foto') viewFoto(r, i); else if (s === 'ringkas') viewRingkas(r, i); else viewInd(r, i, IND.find(x => x.no === s));
+  app.querySelectorAll('[data-step]').forEach(b => b.onclick = () => { if (i === 0 && !validId(r)) return; step(r, +b.dataset.step); });
+  const chipOn = app.querySelector('.chip.on'); if (chipOn) chipOn.scrollIntoView({ inline: 'center', block: 'nearest' });
+  if (s !== 'ringkas') setNav([
+    { text: '← ' + (i ? 'Kembali' : 'Beranda'), cls: 'btn-o', fn: () => i ? step(r, i - 1) : home() },
+    { text: 'Lanjut →', cls: 'btn-p', fn: () => { if (i === 0 && !validId(r)) return; step(r, i + 1); } }]);
+}
+A.step = step; A.STEPS = STEPS;
+function validId(r) {
+  if (!r.kab || !r.kec || !r.desa || !r.tanggal || !r.tim.trim()) { toast('Lengkapi isian bertanda *'); return false; }
+  return true;
+}
+
+/* Identitas */
+function viewId(r, i) {
+  const W = sess.wilayah.filter(w => sess.tim.kab.includes(w.kab));
+  const kabs = sess.tim.kab, kecs = [...new Set(W.filter(w => w.kab === r.kab).map(w => w.kec))];
+  const desas = W.filter(w => w.kab === r.kab && w.kec === r.kec).map(w => w.desa);
+  const opt = (arr, v) => `<option value="">— pilih —</option>` + arr.map(x => `<option ${x === v ? 'selected' : ''}>${esc(x)}</option>`).join('');
+  app.innerHTML = `${head(r, i)}<div class="card">
+    <div class="hint">Data acuan: ${DATA_ACUAN}</div>
+    <label class="f req">Kabupaten/Kota</label><select id="kab">${opt(kabs, r.kab)}</select>
+    <label class="f req">Kecamatan</label><select id="kec">${opt(kecs, r.kec)}</select>
+    <label class="f req">Desa/Kelurahan</label><select id="desa">${opt(desas, r.desa)}</select>
+    <label class="f req">Tanggal kunjungan</label><input type="date" id="tanggal" value="${esc(r.tanggal)}">
+    <label class="f req">Tim verifikasi</label><input type="text" id="tim" value="${esc(r.tim)}">
+    <label class="f">Pendamping desa/kader</label><input type="text" id="pendamping" value="${esc(r.pendamping)}">
+    <label class="f">Periode data</label><input type="text" id="periode" value="${esc(r.periode)}" placeholder="mis. Minggu ke-4 (per 5 November 2026)">
+    ${!W.length ? '<div class="warn">Data wilayah kosong. Buka ⚙️ → Perbarui data master saat ada internet.</div>' : ''}
+  </div>${footer()}`;
+  $('#kab').onchange = e => { r.kab = e.target.value; r.kec = ''; r.desa = ''; touch(r); step(r, i); };
+  $('#kec').onchange = e => { r.kec = e.target.value; r.desa = ''; touch(r); step(r, i); };
+  $('#desa').onchange = e => {
+    r.desa = e.target.value; touch(r);
+    const dup = recs.find(x => x !== r && x.desa === r.desa && x.kec === r.kec && x.tanggal === r.tanggal);
+    if (dup) toast('Perhatian: Desa ini sudah dimonev pada tanggal yang sama.', 4000);
+  };
+  ['tanggal', 'tim', 'pendamping', 'periode'].forEach(f => $('#' + f).addEventListener('input', e => { r[f] = e.target.value; touch(r); }));
+}
+
+/* Indikator */
+function fieldHtml(r, f) {
+  const v = r.v[f.k];
+  const lab = `<label>${esc(f.l)}${f.u ? ` <span class="u">(${f.u})</span>` : ''}</label>`;
+  if (f.type === 'calc') return `<div class="fi">${lab}<div class="calc" data-calc="${f.k}">${calcText(f, r.v[f.k])}</div></div>`;
+  if (f.type === 'num' || f.type === 'dec') return `<div class="fi">${lab}<input type="number" inputmode="${f.type === 'num' ? 'numeric' : 'decimal'}" ${f.type === 'num' ? 'min="0" step="1"' : 'step="0.01"'} data-k="${f.k}" value="${esc(v ?? '')}"></div>`;
+  if (f.type === 'text') return `<div class="fi wide">${lab}<input type="text" data-k="${f.k}" value="${esc(v ?? '')}"></div>`;
+  if (f.type === 'area') return `<div class="fi wide">${lab}<textarea data-k="${f.k}">${esc(v ?? '')}</textarea></div>`;
+  if (f.type === 'radio') return `<div class="fi wide">${lab}<div class="opts">${f.opt.map(o => `<label><input type="radio" name="${f.k}" data-k="${f.k}" value="${esc(o)}" ${v === o ? 'checked' : ''}>${esc(o)}</label>`).join('')}</div></div>`;
+  if (f.type === 'checks') return `<div class="fi wide">${lab}<div class="opts">${f.opt.map(o => `<label><input type="checkbox" data-k="${f.k}" value="${esc(o)}" ${(v || []).includes(o) ? 'checked' : ''}>${esc(o)}</label>`).join('')}</div></div>`;
+}
+function calcText(f, x) {
+  if (x === '' || x === undefined || x === null) return '<span class="hint">otomatis</span>';
+  if (f.k === 'warna_desa') return badgeWarna(x);
+  return `${String(x).replace('.', ',')}${f.u === '%' ? ' %' : f.u ? ' ' + f.u : ''}`;
+}
+function viewInd(r, i, it) {
+  const lb = LEMBAR[it.lb - 1];
+  app.innerHTML = `${head(r, i)}<div class="card">
+    <div class="lb">Lembar ${lb.no} · ${esc(lb.judul)}</div>
+    <h3 class="t">${it.no}. ${kam(it.judul)}</h3>
+    <div class="tanya">Tanya ke: ${esc(it.tanya)}</div>${it.tpg ? '<div class="tpg">Diisi oleh petugas gizi/TPG</div>' : ''}
+    <div class="bukti"><b>Bukti yang dilihat:</b> ${kam(it.bukti)}</div>
+    ${it.q.map((q, n) => `<div class="qbox"><div class="qt"><b>${'abc'[n]}.</b> ${kam(q.t)}</div><div class="fl ${q.grid ? 'g4' : ''}">${q.f.map(f => fieldHtml(r, f)).join('')}</div></div>`).join('')}
+    ${it.no === 2 ? `<div class="hint" style="margin-top:8px">Contoh: 20 balita + 5 ibu hamil = 25 sasaran; yang ada data 20 → 80% → Kuning.</div>` : ''}
+    <div id="warns"></div>
+    <div class="sec"><label class="f" style="margin-top:0">Kendala/masalah yang ditemukan</label><div class="hint">Fokus: ${esc(it.fokus)}</div>
+      <textarea data-x="kendala">${esc(r.kendala[it.no] || '')}</textarea>
+      <label class="f">Rencana perbaikan</label><textarea data-x="rencana">${esc(r.rencana[it.no] || '')}</textarea></div>
+  </div>${footer()}`;
+  const upd = () => {
+    hitung(r.v);
+    app.querySelectorAll('[data-calc]').forEach(el => { const f = ALL_FIELDS.find(x => x.k === el.dataset.calc); el.innerHTML = calcText(f, r.v[f.k]); });
+    const w = (it.cek ? it.cek(r.v) : []).filter(Boolean);
+    $('#warns').innerHTML = w.map(x => `<div class="warn">⚠️ ${esc(x)}</div>`).join('');
+  };
+  app.querySelectorAll('[data-k]').forEach(el => el.addEventListener(el.type === 'checkbox' || el.type === 'radio' ? 'change' : 'input', () => {
+    const k = el.dataset.k;
+    if (el.type === 'checkbox') r.v[k] = [...app.querySelectorAll(`input[data-k="${k}"]:checked`)].map(x => x.value);
+    else r.v[k] = el.value;
+    touch(r); upd();
+  }));
+  app.querySelectorAll('[data-x]').forEach(el => el.oninput = () => { r[el.dataset.x][it.no] = el.value; touch(r); });
+  upd();
+}
+
+/* Daftar balita belum diperiksa/dirujuk */
+function viewBalita(r, i) {
+  app.innerHTML = `${head(r, i)}<div class="card"><div class="lb">Lembar 3 · Lanjutan indikator 8–9</div>
+    <h3 class="t">Daftar balita yang belum diperiksa di Puskesmas / belum ke rumah sakit</h3>
+    <div class="hint">Lewati jika tidak ada.</div><div id="bl" style="margin-top:10px"></div>
+    <button class="btn btn-o" id="addB" style="width:100%">＋ Tambah balita</button></div>${footer()}`;
+  const draw = () => {
+    $('#bl').innerHTML = r.balita.map((b, n) => `<div class="mini"><div class="hd2"><span>Balita ${n + 1}</span><button class="btn btn-o btn-sm" data-del="${n}">🗑️</button></div>
+      <div class="fl"><div class="fi wide"><label>Nama balita</label><input type="text" data-n="${n}" data-f="nama" value="${esc(b.nama)}"></div>
+      <div class="fi"><label>Umur</label><input type="text" data-n="${n}" data-f="umur" value="${esc(b.umur)}" placeholder="mis. 18 bln"></div>
+      <div class="fi"><label>Jenis</label><select data-n="${n}" data-f="jenis">${['', 'Pemeriksaan ke Puskesmas', 'Rujukan ke RS'].map(o => `<option ${b.jenis === o ? 'selected' : ''} value="${o}">${o || '— pilih —'}</option>`).join('')}</select></div>
+      <div class="fi wide"><label>Hambatan</label><input type="text" data-n="${n}" data-f="hambatan" value="${esc(b.hambatan)}"></div>
+      <div class="fi wide"><label>Tindak lanjut & pendamping</label><input type="text" data-n="${n}" data-f="tl" value="${esc(b.tl)}"></div></div></div>`).join('');
+    app.querySelectorAll('[data-f]').forEach(el => el.addEventListener('input', () => { r.balita[el.dataset.n][el.dataset.f] = el.value; touch(r); }));
+    app.querySelectorAll('[data-del]').forEach(el => el.onclick = () => { r.balita.splice(+el.dataset.del, 1); touch(r); draw(); });
+  };
+  $('#addB').onclick = () => { r.balita.push({ nama: '', umur: '', jenis: '', hambatan: '', tl: '' }); touch(r); draw(); };
+  draw();
+}
+
+/* Tanda tangan di layar */
+function sigPad(holder, initial, onDone) {
+  holder.innerHTML = `<div class="sigwrap"><canvas></canvas></div><div class="acts" style="margin-top:6px"><button class="btn btn-o btn-sm" data-c>Hapus tanda tangan</button><span class="hint" data-s></span></div>`;
+  const cv = holder.querySelector('canvas'), ctx = cv.getContext('2d');
+  const fit = () => { const w = cv.clientWidth; cv.width = w * 2; cv.height = 300; ctx.scale(2, 2); ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#0b1d51'; };
+  fit(); let drawing = false, dirty = false, last;
+  if (initial) { const im = new Image(); im.onload = () => ctx.drawImage(im, 0, 0, cv.clientWidth, 150); im.src = initial; holder.querySelector('[data-s]').textContent = '✔ tersimpan'; }
+  const pos = e => { const b = cv.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; };
+  cv.addEventListener('pointerdown', e => { drawing = true; last = pos(e); cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener('pointermove', e => { if (!drawing) return; const p = pos(e); ctx.beginPath(); ctx.moveTo(...last); ctx.lineTo(...p); ctx.stroke(); last = p; dirty = true; });
+  const end = () => { if (!drawing) return; drawing = false; if (dirty) { onDone(cv.toDataURL('image/png')); holder.querySelector('[data-s]').textContent = '✔ tersimpan'; } };
+  cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+  holder.querySelector('[data-c]').onclick = () => { ctx.clearRect(0, 0, cv.width, cv.height); dirty = false; onDone(null); holder.querySelector('[data-s]').textContent = ''; };
+}
+A.sigPad = sigPad;
+
+function viewSepakat(r, i) {
+  const pihak = [['tim', 'Tim Verifikasi'], ['desa', 'Perwakilan Pemerintah Desa'], ['kader', 'Kader/Pendamping Desa']];
+  app.innerHTML = `${head(r, i)}<div class="card"><h3 class="t">Kesepakatan Tindak Lanjut Desa</h3>
+    <div class="hint">Diisi bersama perwakilan desa di akhir kunjungan. Pilih masalah yang paling penting untuk segera diperbaiki.</div>
+    ${r.sepakat.map((p, n) => `<div class="mini" style="margin-top:10px"><div class="hd2">Prioritas ${n + 1}</div>
+      <div class="fl"><div class="fi wide"><label>Masalah paling penting (No. indikator)</label><input type="text" data-p="${n}" data-f="masalah" value="${esc(p.masalah)}"></div>
+      <div class="fi wide"><label>Kegiatan perbaikan yang disepakati</label><textarea data-p="${n}" data-f="kegiatan">${esc(p.kegiatan)}</textarea></div>
+      <div class="fi"><label>Penanggung jawab</label><input type="text" data-p="${n}" data-f="pj" value="${esc(p.pj)}"></div>
+      <div class="fi"><label>Batas waktu</label><input type="date" data-p="${n}" data-f="batas" value="${esc(p.batas)}"></div></div></div>`).join('')}
+    <label class="f">Jadwal kunjungan ulang</label><input type="date" id="ulang" value="${esc(r.ulang)}"></div>
+    <div class="card"><h3 class="t">✍️ Tanda Tangan</h3><div class="hint">Minta tiap pihak menulis nama lalu tanda tangan dengan jari di kotak.</div>
+    ${pihak.map(([k, l]) => `<div style="margin-top:14px"><label class="f">${l} – nama & jabatan</label><input type="text" data-ttd="${k}" value="${esc(r.ttd[k].nama)}"><div data-pad="${k}" style="margin-top:6px"></div></div>`).join('')}
+    </div>${footer()}`;
+  app.querySelectorAll('[data-p]').forEach(el => el.addEventListener('input', () => { r.sepakat[el.dataset.p][el.dataset.f] = el.value; touch(r); }));
+  $('#ulang').oninput = e => { r.ulang = e.target.value; touch(r); };
+  app.querySelectorAll('[data-ttd]').forEach(el => el.oninput = () => { r.ttd[el.dataset.ttd].nama = el.value; touch(r); });
+  pihak.forEach(async ([k]) => {
+    const mid = r.id + '_ttd_' + k, init = r.ttd[k].mid ? await idb.get(mid) : null;
+    sigPad(app.querySelector(`[data-pad="${k}"]`), init, async data => {
+      if (data) { await idb.set(mid, data); r.ttd[k].mid = mid; } else { await idb.del(mid); delete r.ttd[k].mid; }
+      delete r.ttd[k].url; touch(r);
+    });
   });
 }
 
-/* ---------- Pilih jenjang ---------- */
-function pilihJenjang() {
-  scrollTo(0, 0);
-  app.innerHTML = `<h2 style="margin-top:4px">Pilih sasaran kunjungan</h2>
-    <div class="jenjang">${Object.entries(JENJANG).map(([k, J]) =>
-      `<button class="jcard" data-k="${k}"><span class="ic">${J.ikon}</span><div><b>${J.nama}</b><span>10 indikator verifikasi</span></div></button>`).join('')}
-    </div>${footer()}`;
-  app.querySelectorAll('.jcard').forEach(el => el.onclick = () => {
-    const r = blankRecord(el.dataset.k); recs.push(r); save(); identitas(r);
+/* Foto (opsional, maks 5) */
+function kompres(file) {
+  return new Promise((res, rej) => {
+    const im = new Image(), u = URL.createObjectURL(file);
+    im.onload = () => { const m = 1280, s = Math.min(1, m / Math.max(im.width, im.height)); const c = document.createElement('canvas');
+      c.width = Math.round(im.width * s); c.height = Math.round(im.height * s); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(u); res(c.toDataURL('image/jpeg', 0.72)); };
+    im.onerror = rej; im.src = u;
   });
-  setNav([{ text: '← Kembali', cls: 'btn-o', fn: home }]);
+}
+function viewFoto(r, i) {
+  app.innerHTML = `${head(r, i)}<div class="card"><h3 class="t">📷 Foto Dokumentasi</h3>
+    <div class="hint">Opsional, maksimal ${CONFIG.MAX_FOTO} foto. Foto dikecilkan otomatis dan tersimpan di HP sampai ada internet.</div>
+    <div class="fotos" id="fl" style="margin-top:12px"></div>
+    <input type="file" accept="image/*" id="fin" class="hide" multiple>
+    <button class="btn btn-o" id="addF" style="width:100%;margin-top:12px">＋ Ambil / pilih foto</button></div>${footer()}`;
+  const draw = async () => {
+    const items = await Promise.all(r.foto.map(async (f, n) => ({ f, n, src: (await idb.get(f.mid)) || f.url || '' })));
+    $('#fl').innerHTML = items.map(({ f, n, src }) => `<div class="foto"><img src="${esc(src)}" alt=""><div class="c">
+      <input type="text" data-ket="${n}" value="${esc(f.ket)}" placeholder="Keterangan foto"><button class="btn btn-o btn-sm" data-del="${n}" style="margin-top:6px;width:100%">🗑️ Hapus</button></div></div>`).join('');
+    $('#addF').disabled = r.foto.length >= CONFIG.MAX_FOTO;
+    app.querySelectorAll('[data-ket]').forEach(el => el.oninput = () => { r.foto[el.dataset.ket].ket = el.value; touch(r); });
+    app.querySelectorAll('[data-del]').forEach(el => el.onclick = async () => { const f = r.foto.splice(+el.dataset.del, 1)[0]; await idb.del(f.mid); touch(r); draw(); });
+  };
+  $('#addF').onclick = () => $('#fin').click();
+  $('#fin').onchange = async e => {
+    const files = [...e.target.files].slice(0, CONFIG.MAX_FOTO - r.foto.length);
+    for (const file of files) { const data = await kompres(file); const mid = newId(r.id + '_foto'); await idb.set(mid, data); r.foto.push({ mid, ket: '' }); }
+    if (e.target.files.length > files.length) toast('Maksimal ' + CONFIG.MAX_FOTO + ' foto');
+    e.target.value = ''; touch(r); draw();
+  };
+  draw();
 }
 
-/* ---------- Identitas kunjungan ---------- */
-function identitas(r) {
-  scrollTo(0, 0);
-  const J = JENJANG[r.jenjang];
-  app.innerHTML = `
-    <div class="step-top"><span>${J.ikon} ${J.nama}</span><span>Identitas</span></div>
-    <div class="bar"><i style="width:4%"></i></div>
-    <div class="card">
-      <div class="hint" style="margin:0 0 4px">Dasar kunjungan: ${DASAR_KUNJUNGAN}</div>
-      <label class="f req">Kabupaten/Kota</label>
-      <select id="kab"><option value="">— pilih —</option>${KABKOTA.map(k => `<option ${k === r.kab ? 'selected' : ''}>${k}</option>`).join('')}</select>
-      <label class="f req">${J.unitLabel}</label><input type="text" id="unit" value="${esc(r.unit)}">
-      <label class="f req">Tanggal kunjungan</label><input type="date" id="tanggal" value="${esc(r.tanggal)}">
-      <label class="f req">Tim verifikasi</label><input type="text" id="tim" value="${esc(r.tim)}" placeholder="Nama anggota tim">
-      <label class="f">Pendamping</label><input type="text" id="pendamping" value="${esc(r.pendamping)}">
-      <label class="f">Periode data</label><input type="text" id="periode" value="${esc(r.periode)}" placeholder="mis. Januari–Oktober 2026">
-    </div>${footer()}`;
-  ['kab', 'unit', 'tanggal', 'tim', 'pendamping', 'periode'].forEach(f =>
-    $('#' + f).addEventListener('input', e => touch(r, () => r[f] = e.target.value)));
-  setNav([
-    { text: '← Beranda', cls: 'btn-o', fn: home },
-    { text: 'Mulai Isi →', cls: 'btn-p', fn: () => {
-      if (!r.kab || !r.unit.trim() || !r.tanggal || !r.tim.trim()) return toast('Lengkapi isian bertanda *');
-      localStorage.setItem(KEY_TIM, JSON.stringify({ kab: r.kab, tim: r.tim }));
-      indikator(r, 0);
-    }}
-  ]);
-}
-
-function touch(r, fn) {
-  fn(); r.updated = Date.now(); r.synced = false; save();
-}
-
-/* ---------- Isian per indikator ---------- */
-function indikator(r, i) {
-  scrollTo(0, 0);
-  const J = JENJANG[r.jenjang], it = J.items[i], v = r.items[i];
-  const huruf = 'abcdefgh';
-  app.innerHTML = `
-    <div class="step-top"><span>${J.ikon} ${esc(r.unit)}</span><span>Indikator ${i + 1} dari 10</span></div>
-    <div class="bar"><i style="width:${(i + 1) * 9.5}%"></i></div>
-    <div class="chips">${J.items.map((_, n) =>
-      `<button class="chip ${n === i ? 'on' : itemDone(r.items[n]) ? 'done' : ''}" data-n="${n}">${n + 1}</button>`).join('')}</div>
-    <div class="card">
-      <h3 class="ind-title">${i + 1}. ${it.j}</h3>
-      <div class="bukti"><b>Bukti yang diperiksa:</b> ${it.b}</div>
-      <label class="f">Status bukti</label>
-      <div class="radios">${STATUS_BUKTI.map(s =>
-        `<label><input type="radio" name="st" value="${s}" ${v.st === s ? 'checked' : ''}><span>${s}</span></label>`).join('')}</div>
-      <div class="sec"><b>Hasil penelusuran</b><div class="hint">Isi sesuai nomor pertanyaan, termasuk jumlah, periode dan cakupan yang relevan.</div>
-      ${it.q.map((q, n) => `<div class="q"><div class="ql"><b>${huruf[n]}.</b> ${q}</div>
-        <textarea data-h="${n}" placeholder="Jawaban ${huruf[n]}…">${esc(v.h[n])}</textarea></div>`).join('')}</div>
-      <div class="sec"><label class="f" style="margin-top:0">Kendala/masalah yang ditemukan</label>
-        <div class="hint" style="margin-bottom:6px">${it.k}</div>
-        <textarea id="k">${esc(v.k)}</textarea>
-        <label class="f">Upaya yang akan dilakukan</label>
-        <textarea id="u">${esc(v.u)}</textarea></div>
-    </div>${footer()}`;
-  app.querySelectorAll('input[name=st]').forEach(el => el.onchange = () => touch(r, () => v.st = el.value));
-  app.querySelectorAll('[data-h]').forEach(el => el.oninput = () => touch(r, () => v.h[el.dataset.h] = el.value));
-  $('#k').oninput = e => touch(r, () => v.k = e.target.value);
-  $('#u').oninput = e => touch(r, () => v.u = e.target.value);
-  app.querySelectorAll('.chip').forEach(el => el.onclick = () => indikator(r, +el.dataset.n));
-  setNav([
-    { text: '← ' + (i ? 'Sebelumnya' : 'Identitas'), cls: 'btn-o', fn: () => i ? indikator(r, i - 1) : identitas(r) },
-    i < 9 ? { text: 'Berikutnya →', cls: 'btn-p', fn: () => indikator(r, i + 1) }
-          : { text: 'Selesai ✔', cls: 'btn-g', fn: () => ringkasan(r) }
-  ]);
-}
-
-/* ---------- Ringkasan & simpan ---------- */
-function ringkasan(r) {
-  scrollTo(0, 0);
-  const J = JENJANG[r.jenjang], done = countDone(r);
-  app.innerHTML = `
-    <div class="step-top"><span>${J.ikon} ${J.nama}</span><span>Ringkasan</span></div>
-    <div class="bar"><i style="width:100%"></i></div>
-    <div class="card">
-      <b style="font-size:17px">${esc(r.unit)}</b>
-      <div class="m" style="color:var(--redup);font-size:14px">${esc(r.kab)} · ${fmtTgl(r.tanggal)}<br>Tim: ${esc(r.tim)}${r.pendamping ? ' · Pendamping: ' + esc(r.pendamping) : ''}${r.periode ? '<br>Periode data: ' + esc(r.periode) : ''}</div>
-      <div class="acts"><button class="btn btn-o" id="eId">✏️ Ubah identitas</button></div>
-    </div>
-    <div class="card">
-      <b>${done}/10 indikator terisi</b> <span class="hint">— ketuk untuk mengubah</span>
-      ${J.items.map((it, n) => `<div class="sum-item" data-n="${n}" style="cursor:pointer">
-        <span class="n ${itemDone(r.items[n]) ? 'ok' : 'no'}">${n + 1}</span>
-        <span style="flex:1">${it.j}<br><small style="color:var(--redup)">${esc(r.items[n].st || 'status bukti belum dipilih')}</small></span>›</div>`).join('')}
-    </div>
-    ${r.status === 'final' ? `<div class="card" style="text-align:center">${r.synced
-      ? `✔ Terkirim ke server ${fmtWaktu(r.syncedAt)}` : '⏳ Tersimpan di HP, akan dikirim otomatis saat online'}</div>` : ''}
+/* Ringkasan */
+function viewRingkas(r, i) {
+  const warns = IND.flatMap(it => (it.cek ? it.cek(r.v) : []).filter(Boolean).map(w => `${it.no}. ${w}`));
+  app.innerHTML = `${head(r, i)}<div class="card"><b style="font-size:17px">Desa ${esc(r.desa)}</b> ${badgeWarna(r.v.warna_desa)}
+    <div class="m">Kec. ${esc(r.kec)} · ${esc(r.kab)} · ${fmtTgl(r.tanggal)}<br>Tim: ${esc(r.tim)}</div>
+    ${r.v.gab_pct !== undefined && r.v.gab_pct !== '' ? `<div style="margin-top:6px">Cakupan gabungan: <b>${String(r.v.gab_pct).replace('.', ',')} %</b></div>` : ''}</div>
+    ${warns.length ? `<div class="card"><b>⚠️ Angka yang perlu dicek</b>${warns.map(w => `<div class="warn">${esc(w)}</div>`).join('')}</div>` : ''}
+    <div class="card"><b>${doneCount(r)}/13 indikator terisi</b> <span class="hint">— ketuk untuk mengubah</span>
+    ${STEPS.slice(0, -1).map((s, n) => `<div class="sum-item" data-go="${n}"><span class="nn ${stepDone(r, s) ? 'ok' : 'no'}">${chipLabel(s)}</span>
+      <span style="flex:1">${typeof s === 'number' ? esc(IND.find(x => x.no === s).judul) : stepLabel(s)}</span>›</div>`).join('')}</div>
+    ${r.status === 'final' ? `<div class="card" style="text-align:center">${r.synced ? '✔ Sudah terkirim ke server' : '⏳ Tersimpan di HP, akan dikirim otomatis saat online'}</div>` : ''}
     ${footer()}`;
-  $('#eId').onclick = () => identitas(r);
-  app.querySelectorAll('.sum-item').forEach(el => el.onclick = () => indikator(r, +el.dataset.n));
-  const finalize = () => {
-    const go = () => { r.status = 'final'; r.updated = Date.now(); r.synced = false; save(); toast('Tersimpan ✔'); home(); sync(); };
-    done < 10 ? confirmBox(`Baru ${done} dari 10 indikator yang terisi. Tetap simpan & kirim?`, 'Ya, simpan', go) : go();
+  app.querySelectorAll('[data-go]').forEach(el => el.onclick = () => step(r, +el.dataset.go));
+  app.querySelectorAll('[data-step]').forEach(b => b.onclick = () => step(r, +b.dataset.step));
+  const fin = () => {
+    const go = () => { r.status = 'final'; touch(r); toast('Tersimpan ✔'); home(); sync(); };
+    const d = doneCount(r);
+    d < 13 ? confirmBox(`Baru ${d} dari 13 indikator yang terisi. Tetap simpan & kirim?`, 'Ya, simpan', go) : go();
   };
-  setNav([
-    { text: '🖨️ Cetak', cls: 'btn-o', fn: () => cetak(r) },
-    { text: r.status === 'final' ? 'Simpan & Kirim' : 'Simpan & Kirim ✔', cls: 'btn-g', fn: finalize }
-  ]);
+  setNav([{ text: '🖨️ Cetak', cls: 'btn-o', fn: () => cetak(r) }, { text: 'Simpan & Kirim ✔', cls: 'btn-g', fn: fin }]);
 }
 
-/* ---------- Sinkronisasi ke Google Sheet ---------- */
-let syncing = false;
-function payload(r) {
-  const J = JENJANG[r.jenjang];
-  return {
-    action: 'simpan',
-    header: { id: r.id, jenjang: J.nama, kab: r.kab, unit: r.unit, tanggal: r.tanggal, tim: r.tim,
-      pendamping: r.pendamping, periode: r.periode, terisi: countDone(r),
-      dibuat: new Date(r.created).toISOString(), diubah: new Date(r.updated).toISOString(),
-      perangkat: navigator.userAgent.slice(0, 120) },
-    detail: J.items.map((it, n) => {
-      const v = r.items[n];
-      return { no: n + 1, indikator: it.j, bukti: it.b, status_bukti: v.st,
-        jawaban: it.q.map((q, k) => ({ q, a: v.h[k] || '' })), kendala: v.k, upaya: v.u };
-    })
-  };
+/* ---------- Teks jawaban (dipakai cetak & laporan) ---------- */
+function jawabTeks(r, it) {
+  return it.q.map((q, n) => {
+    const parts = q.f.map(f => { const x = r.v[f.k]; if (!isi(x)) return ''; const val = Array.isArray(x) ? x.join(', ') : String(x).replace('.', ',');
+      return `${f.l}: ${val}${f.u === '%' ? '%' : f.u ? ' ' + f.u : ''}`; }).filter(Boolean);
+    return parts.length ? `${'abc'[n]}. ${parts.join('; ')}` : '';
+  }).filter(Boolean);
 }
-async function sync(manual) {
-  const url = getUrl();
-  if (syncing || !navigator.onLine || !url) { if (manual && !url) toast('URL server belum diatur (⚙️)'); refreshStatus(); return; }
-  const pend = recs.filter(r => r.status === 'final' && !r.synced);
-  if (!pend.length) { refreshStatus(); return; }
-  syncing = true; let ok = 0, fail = 0;
-  for (const r of pend) {
-    const ver = r.updated;
-    try {
-      const res = await fetch(url, { method: 'POST', body: JSON.stringify(payload(r)) }); // text/plain → tanpa preflight CORS
-      const j = await res.json();
-      if (!j.ok) throw new Error(j.error || 'gagal');
-      const cur = find(r.id);
-      if (cur && cur.updated === ver) { cur.synced = true; cur.syncedAt = Date.now(); save(); }
-      ok++;
-    } catch (e) { fail++; console.warn('Sync gagal', r.id, e); }
-  }
-  syncing = false;
-  if (ok) toast(`☁️ ${ok} data terkirim ke server`);
-  else if (fail && manual) toast('Gagal mengirim. Periksa koneksi / URL server.');
-  if (app.querySelector('#btnNew')) home(); else refreshStatus();
-}
+A.jawabTeks = jawabTeks;
 
 /* ---------- Cetak ---------- */
-function cetak(r) {
-  const J = JENJANG[r.jenjang], huruf = 'abcdefgh';
-  $('#printArea').innerHTML = `
-    <div class="kop"><img src="icons/logo-sulsel.png"><div><h3>Daftar Tilik Monitoring Evaluasi Tahap II Program Gizi ke ${J.nama}</h3>
-      Dasar kunjungan | ${DASAR_KUNJUNGAN}</div></div>
-    <table class="id"><tr><td width="14%">Kabupaten/Kota</td><td width="36%">: ${esc(r.kab)}</td><td width="14%">Unit/Lokasi</td><td>: ${esc(r.unit)}</td></tr>
-      <tr><td>Tim verifikasi</td><td>: ${esc(r.tim)}</td><td>Pendamping</td><td>: ${esc(r.pendamping)}</td></tr>
-      <tr><td>Tanggal</td><td>: ${fmtTgl(r.tanggal)}</td><td>Periode data</td><td>: ${esc(r.periode)}</td></tr></table><br>
-    <table><thead><tr><th width="3%">No</th><th width="25%">Verifikasi kunjungan lapangan</th><th width="13%">Bukti yang diperiksa</th>
-      <th width="27%">Hasil penelusuran</th><th width="16%">Kendala/masalah yang ditemukan</th><th width="16%">Upaya yang akan dilakukan</th></tr></thead>
-    <tbody>${J.items.map((it, n) => { const v = r.items[n]; return `<tr><td>${n + 1}</td>
-      <td><b>${it.j}</b>${it.q.map((q, k) => `<br>${huruf[k]}. ${q}`).join('')}</td>
-      <td>${it.b}${v.st ? `<br><br><i>Status: ${esc(v.st)}</i>` : ''}</td>
-      <td>${it.q.map((_, k) => `${huruf[k]}. ${esc(v.h[k]).replace(/\n/g, '<br>')}`).join('<br>')}</td>
-      <td>${esc(v.k).replace(/\n/g, '<br>')}</td><td>${esc(v.u).replace(/\n/g, '<br>')}</td></tr>`; }).join('')}</tbody></table>
-    <div class="ttd"><div>${esc(r.kab)}, ${fmtTgl(r.tanggal)}<br>Tim Verifikasi<br><br><br><br>( ${esc(r.tim)} )</div></div>
-    <div class="dev">ID: ${r.id} · Developed : Manjilala, S.Gz, M.Gizi | Poltekkes Kemenkes Makassar | DPD PERSAGI Sulsel</div>`;
-  setTimeout(() => window.print(), 150);
+async function cetak(r) {
+  const img = async m => m?.mid ? (await idb.get(m.mid)) || m.url || '' : m?.url || '';
+  const ttdImgs = {}; for (const k of ['tim', 'desa', 'kader']) ttdImgs[k] = await img(r.ttd[k]);
+  const fotos = await Promise.all(r.foto.map(img));
+  $('#printArea').innerHTML = `<div style="display:flex;gap:10px;align-items:center;border-bottom:2px solid #000;padding-bottom:6px">
+    <img src="icons/kop-logo.png" style="width:46px"><div style="flex:1"><h3>Daftar Tilik Monitoring Evaluasi Capaian Program Gizi Aksi Stop Stunting</h3>
+    <div style="text-align:center">Data acuan: ${DATA_ACUAN}</div></div></div>
+    <table class="noborder"><tr><td>Kabupaten/Kota: ${esc(r.kab)}</td><td>Kecamatan: ${esc(r.kec)}</td><td>Desa: ${esc(r.desa)}</td><td>Tanggal: ${fmtTgl(r.tanggal)}</td></tr>
+    <tr><td colspan="2">Tim verifikasi: ${esc(r.tim)}</td><td>Pendamping: ${esc(r.pendamping)}</td><td>Periode: ${esc(r.periode)}</td></tr>
+    <tr><td colspan="4"><b>Cakupan gabungan: ${esc(String(r.v.gab_pct ?? '-').replace('.', ','))}% · Status desa: ${esc(r.v.warna_desa || '-')}</b></td></tr></table>
+    <table><tr><th width="4%">No</th><th width="24%">Yang ditanyakan</th><th width="32%">Jawaban & angka temuan</th><th width="20%">Kendala</th><th width="20%">Rencana perbaikan</th></tr>
+    ${IND.map(it => `<tr><td>${it.no}</td><td><b>${esc(it.judul)}</b><br><i>Tanya ke: ${esc(it.tanya)}</i></td><td>${jawabTeks(r, it).map(esc).join('<br>')}</td>
+      <td>${esc(r.kendala[it.no] || '').replace(/\n/g, '<br>')}</td><td>${esc(r.rencana[it.no] || '').replace(/\n/g, '<br>')}</td></tr>`).join('')}</table>
+    ${r.balita.length ? `<p><b>Daftar balita yang belum diperiksa di Puskesmas / belum ke rumah sakit</b></p><table><tr><th>No</th><th>Nama balita</th><th>Umur</th><th>Pemeriksaan/Rujukan</th><th>Hambatan</th><th>Tindak lanjut & pendamping</th></tr>
+      ${r.balita.map((b, n) => `<tr><td>${n + 1}</td><td>${esc(b.nama)}</td><td>${esc(b.umur)}</td><td>${esc(b.jenis)}</td><td>${esc(b.hambatan)}</td><td>${esc(b.tl)}</td></tr>`).join('')}</table>` : ''}
+    <p><b>Kesepakatan Tindak Lanjut Desa</b></p><table><tr><th>Prioritas</th><th>Masalah</th><th>Kegiatan perbaikan</th><th>Penanggung jawab</th><th>Batas waktu</th></tr>
+    ${r.sepakat.map((p, n) => `<tr><td>${n + 1}</td><td>${esc(p.masalah)}</td><td>${esc(p.kegiatan)}</td><td>${esc(p.pj)}</td><td>${p.batas ? fmtTgl(p.batas) : ''}</td></tr>`).join('')}</table>
+    <p>Jadwal kunjungan ulang: ${r.ulang ? fmtTgl(r.ulang) : '-'}</p>
+    <table class="noborder"><tr>${[['tim', 'Tim Verifikasi'], ['desa', 'Perwakilan Pemerintah Desa'], ['kader', 'Kader/Pendamping Desa']].map(([k, l]) =>
+      `<td style="text-align:center;width:33%">${l}<br>${ttdImgs[k] ? `<img class="s" src="${esc(ttdImgs[k])}">` : '<br><br><br>'}<br>( ${esc(r.ttd[k].nama || '....................')} )</td>`).join('')}</tr></table>
+    ${fotos.filter(Boolean).length ? `<p><b>Dokumentasi</b></p><div>${fotos.map((s, n) => s ? `<div style="display:inline-block;width:32%;margin:0 1% 6px 0;vertical-align:top"><img src="${esc(s)}" style="width:100%"><br>${esc(r.foto[n].ket)}</div>` : '').join('')}</div>` : ''}
+    <p style="text-align:center;font-size:8pt;color:#555">ID: ${r.id} · Developed : Manjilala, S.Gz, M.Gizi | Poltekkes Kemenkes Makassar | DPD PERSAGI Sulsel</p>`;
+  setTimeout(() => window.print(), 300);
 }
 
-/* ---------- Pengaturan ---------- */
-$('#btnSet').onclick = () => {
-  const root = modal(`<h3 style="margin-top:0">⚙️ Pengaturan Server</h3>
-    <label class="f">URL Web App Google Apps Script</label>
-    <input type="text" id="sUrl" value="${esc(getUrl())}" placeholder="https://script.google.com/macros/s/…/exec">
-    <div class="hint">Data tersimpan di HP dan dikirim otomatis ke Google Sheet setiap kali ada internet.</div>
-    <div class="acts" style="justify-content:space-between;margin-top:14px">
-      <button class="btn btn-o" id="sTest">Tes koneksi</button>
-      <span><button class="btn btn-o" id="sNo">Tutup</button> <button class="btn btn-p" id="sOk">Simpan</button></span></div>`);
-  root.querySelector('#sNo').onclick = closeModal;
-  root.querySelector('#sOk').onclick = () => {
-    localStorage.setItem(KEY_URL, root.querySelector('#sUrl').value.trim()); closeModal(); toast('Pengaturan disimpan'); sync(true);
-  };
-  root.querySelector('#sTest').onclick = async () => {
-    const u = root.querySelector('#sUrl').value.trim(); if (!u) return toast('Isi URL dulu');
-    try { const j = await (await fetch(u + (u.includes('?') ? '&' : '?') + 'ping=1')).json(); toast(j.ok ? '✔ Terhubung: ' + (j.sheet || 'server') : 'Server merespons, tapi tidak OK'); }
-    catch { toast('❌ Tidak bisa terhubung'); }
-  };
+/* ---------- Sinkronisasi ---------- */
+const kolomMonev = () => {
+  const cols = []; let prev = '';
+  ALL_FIELDS.forEach(f => { const h = f.l.startsWith('dari') ? `${prev} (${f.l})` : f.l; if (!f.l.startsWith('dari')) prev = f.l; cols.push([f.k, `${f.no}. ${h}${f.u === '%' ? ' (%)' : ''}`]); });
+  return cols;
 };
+const KOLOM = kolomMonev();
+async function uploadMedia(r, m, nama) {
+  if (m.url || !m.mid) return;
+  const data = await idb.get(m.mid); if (!data) return;
+  const j = await api('upload', { path: [r.kab, r.kec, r.desa], name: nama, data });
+  m.url = j.url; saveRecs();
+}
+function payloadMonev(r) {
+  const row = { 'ID': r.id, 'Kode Tim': r.kode, 'Nama Tim': sess.tim.nama, 'Kabupaten/Kota': r.kab, 'Kecamatan': r.kec, 'Desa': r.desa,
+    'Tanggal Kunjungan': r.tanggal, 'Tim Verifikasi': r.tim, 'Pendamping': r.pendamping, 'Periode Data': r.periode };
+  KOLOM.forEach(([k, h]) => { const x = r.v[k]; row[h] = Array.isArray(x) ? x.join(', ') : (x ?? ''); });
+  IND.forEach(it => { row[`${it.no}. Kendala`] = r.kendala[it.no] || ''; row[`${it.no}. Rencana perbaikan`] = r.rencana[it.no] || ''; });
+  row['Jadwal Kunjungan Ulang'] = r.ulang;
+  [['tim', 'Tim Verifikasi'], ['desa', 'Pemdes'], ['kader', 'Kader']].forEach(([k, l]) => { row[`TTD ${l} (nama)`] = r.ttd[k].nama || ''; row[`TTD ${l} (link)`] = r.ttd[k].url || ''; });
+  row['Jumlah Foto'] = r.foto.length; row['Dibuat (HP)'] = new Date(r.created).toISOString(); row['Diubah (HP)'] = new Date(r.updated).toISOString();
+  const base = { 'ID': r.id, 'Kabupaten/Kota': r.kab, 'Kecamatan': r.kec, 'Desa': r.desa };
+  const json = JSON.stringify({ ...r, foto: r.foto.map(f => ({ ket: f.ket, url: f.url })), ttd: Object.fromEntries(Object.entries(r.ttd).map(([k, t]) => [k, { nama: t.nama, url: t.url }])) });
+  return {
+    id: r.id, row, json,
+    balita: r.balita.filter(b => b.nama).map((b, n) => ({ ...base, 'No': n + 1, 'Nama Balita': b.nama, 'Umur': b.umur, 'Pemeriksaan/Rujukan': b.jenis, 'Hambatan': b.hambatan, 'Tindak Lanjut & Pendamping': b.tl })),
+    sepakat: r.sepakat.filter(p => p.masalah || p.kegiatan).map((p, n) => ({ ...base, 'Prioritas': n + 1, 'Masalah': p.masalah, 'Kegiatan Perbaikan': p.kegiatan, 'Penanggung Jawab': p.pj, 'Batas Waktu': p.batas })),
+    foto: [...r.foto.map(f => ({ ...base, 'Jenis': 'Foto', 'Keterangan': f.ket, 'Link': f.url || '' })),
+      ...Object.entries(r.ttd).filter(([, t]) => t.url).map(([k, t]) => ({ ...base, 'Jenis': 'Tanda tangan ' + k, 'Keterangan': t.nama, 'Link': t.url }))]
+  };
+}
+let syncing = false;
+async function sync(manual) {
+  if (syncing || !navigator.onLine || !getUrl() || !sess?.tim) { refreshStatus(); return; }
+  syncing = true; let ok = 0, fail = 0;
+  for (const r of recs.filter(x => x.status === 'final' && !x.synced && x.kode === sess.kode)) {
+    const ver = r.updated;
+    try {
+      const tag = `${r.desa}_${r.tanggal}`.replace(/\s+/g, '_');
+      for (const [k, t] of Object.entries(r.ttd)) await uploadMedia(r, t, `${tag}_ttd_${k}.png`);
+      for (let n = 0; n < r.foto.length; n++) await uploadMedia(r, r.foto[n], `${tag}_foto${n + 1}.jpg`);
+      await api('simpanMonev', payloadMonev(r));
+      if (r.updated === ver) { r.synced = true; r.syncedAt = Date.now(); saveRecs(); }
+      ok++;
+    } catch (e) { fail++; console.warn('sync', r.id, e); }
+  }
+  if (A.syncLaporan) { const x = await A.syncLaporan(); ok += x.ok; fail += x.fail; }
+  syncing = false;
+  if (ok) toast(`☁️ ${ok} data terkirim ke server`); else if (fail && manual) toast('Gagal mengirim. Periksa koneksi/URL server.');
+  if ($('#bNew')) home(); else refreshStatus();
+}
+A.sync = sync;
 
-/* ---------- Mulai ---------- */
 window.addEventListener('online', () => { refreshStatus(); sync(); });
 window.addEventListener('offline', refreshStatus);
 setInterval(sync, 60000);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(console.warn);
-home(); sync();
+window.addEventListener('load', () => { if (sess?.tim) { home(); sync(); } else loginView(); });
 })();
