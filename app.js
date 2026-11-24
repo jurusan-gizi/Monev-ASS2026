@@ -271,7 +271,7 @@ function blankRec() {
   return { id: newId('MC'), kode: sess.kode, kab, kec: '', desa: '', tanggal: today(),
     tim: anggotaTim().map(a => a.nama).join(', '), pendamping: '', periode: '',
     v: {}, kendala: {}, rencana: {}, balita: [], sepakat: [{}, {}, {}], ulang: '',
-    ttd: { tim: { nama: '' }, desa: { nama: '' }, kader: { nama: '' } }, foto: [],
+    ttd: { tim: { nama: profil?.nama || '' }, desa: { nama: '' }, kader: { nama: '' } }, foto: [],
     status: 'draf', synced: false, created: Date.now(), updated: Date.now() };
 }
 const touch = r => { r.updated = Date.now(); r.synced = false; saveRecs(); };
@@ -418,6 +418,7 @@ function sigPad(holder, initial, onDone) {
 A.sigPad = sigPad;
 
 function viewSepakat(r, i) {
+  if (!r.ttd.tim.nama && profil?.nama) { r.ttd.tim.nama = profil.nama; touch(r); } // isi otomatis dari Profil Saya
   const pihak = [['tim', 'Tim Verifikasi'], ['desa', 'Perwakilan Pemerintah Desa'], ['kader', 'Kader/Pendamping Desa']];
   app.innerHTML = `${head(r, i)}<div class="card"><h3 class="t">Kesepakatan Tindak Lanjut Desa</h3>
     <div class="hint">Diisi bersama perwakilan desa di akhir kunjungan. Pilih masalah yang paling penting untuk segera diperbaiki.</div>
