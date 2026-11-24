@@ -135,7 +135,7 @@ function buat(kab) {
   const tgl = d.map(r => r.tanggal).sort();
   const L = { id: newId('LP'), kode: S.kode, kab, nomor: '', tglNota: A.today(), sifat: P('sifat'), lampiran: P('lampiran'), hal: P('hal'),
     kepada: P('kepada'), dari: P('dari'), tembusan: P('tembusan'), noST: '', tglST: '', berangkat: tgl[0], pulang: tgl.at(-1),
-    desaIds: d.map(r => r.id), anggota: S.anggota.map(a => ({ ...a, ikut: true })), teks: {}, edited: false,
+    desaIds: d.map(r => r.id), anggota: A.anggotaTim().map(a => ({ ...a, ikut: true })), teks: {}, edited: false,
     status: 'draf', synced: false, created: Date.now(), updated: Date.now() };
   L.teks = susunDraf(L); laps.push(L); saveLaps(); editor(L);
 }
@@ -144,6 +144,11 @@ function buat(kab) {
 const touch = L => { L.updated = Date.now(); L.synced = false; saveLaps(); };
 function editor(L) {
   scrollTo(0, 0);
+  // anggota yang baru mendaftar ikut masuk; pangkat/NIP diperbarui
+  A.anggotaTim().forEach(a => {
+    const x = L.anggota.find(y => (a.id && y.id === a.id) || y.nama === a.nama);
+    if (x) Object.assign(x, { id: a.id, nama: a.nama, pangkat: a.pangkat, nip: a.nip }); else L.anggota.push({ ...a, ikut: true });
+  });
   const S = sess(), semua = A.recs().filter(r => r.kode === S.kode && r.kab === L.kab && r.status === 'final');
   const inp = (k, l, type = 'text', src = L) => `<div class="fi ${type === 'text' ? 'wide' : ''}"><label>${l}</label><input type="${type}" data-l="${k}" value="${esc(src[k] ?? '')}"></div>`;
   const ta = (k, l, rows = 5, hint = '') => `<label class="f">${l}</label>${hint ? `<div class="hint">${hint}</div>` : ''}<textarea data-t="${k}" rows="${rows}" style="min-height:${rows * 24}px">${esc(L.teks[k] || '')}</textarea>`;

@@ -18,9 +18,14 @@ button,input,select,textarea{font:inherit;color:inherit}
 header{background:linear-gradient(135deg,var(--merah),var(--merah-tua));color:#fff;padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top));
   position:sticky;top:0;z-index:10;border-bottom:4px solid var(--emas)}
 .hd{display:flex;align-items:center;gap:12px;max-width:760px;margin:auto}
-.hd img{width:44px;background:#fff;border-radius:10px;padding:3px}
-.hd h1{font-size:16.5px;margin:0;line-height:1.2}.hd small{display:block;opacity:.9;font-size:12px;font-weight:400}
-.hd .sp{flex:1}
+.logos{display:flex;gap:6px;flex:0 0 auto}
+.logos img{height:46px;width:auto;background:#fff;border-radius:10px;padding:3px}
+.logos img.lp{padding:9px 7px}
+.ttl{min-width:0;flex:1}
+@media (max-width:380px){.hd{gap:8px}.hd h1{font-size:13px}.logos img{height:40px}.logos img.lp{padding:7px 5px}}
+.hd small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hd h1{font-size:14.5px;margin:0;line-height:1.2}.hd small{display:block;opacity:.9;font-size:12px;font-weight:400}
+.hd .sp{display:none}
 .ibtn{background:rgba(255,255,255,.15);border:0;color:#fff;width:40px;height:40px;border-radius:50%;font-size:19px;cursor:pointer}
 main{max-width:760px;margin:auto;padding:16px 14px 120px}
 .status{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;font-size:13px}
@@ -106,8 +111,8 @@ footer{text-align:center;font-size:12px;color:var(--redup);padding:18px 10px 8px
 </head>
 <body>
 <header><div class="hd">
-  <img src="icons/logo-sulsel.png" alt="Logo Sulawesi Selatan">
-  <div><h1>Monev Capaian Gizi ASS<small id="hdSub">Dinas Kesehatan Provinsi Sulawesi Selatan</small></h1></div>
+  <div class="logos"><img src="icons/logo-sulsel.png" alt="Logo Sulawesi Selatan"><img src="icons/logo-poltekkes.png" alt="Poltekkes Kemenkes Makassar" class="lp"></div>
+  <div class="ttl"><h1>Monev Capaian Gizi ASS<small id="hdSub">Dinas Kesehatan Provinsi Sulawesi Selatan</small></h1></div>
   <div class="sp"></div>
   <button class="ibtn" id="btnMenu" aria-label="Menu">⚙️</button>
 </div></header>

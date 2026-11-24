@@ -20,14 +20,12 @@ Developed : Manjilala, S.Gz, M.Gizi | Poltekkes Kemenkes Makassar | DPD PERSAGI 
 ## B. Isi sheet master
 | Sheet | Cara isi |
 |---|---|
-| `MASTER_WILAYAH` | Satu baris per desa: Kabupaten/Kota, Kecamatan, Desa/Kelurahan. Bisa disalin dari MASTER_WILAYAH logbook ASS. |
-| `MASTER_TIM` | **Satu baris per anggota.** Anggota satu tim memakai Kode Tim yang sama. Kolom "Kabupaten/Kota Tugas" boleh lebih dari satu, pisahkan dengan koma. |
+| `MASTER_TIM` | **Terisi otomatis** 24 kab/kota Sulsel. Kode tim = nama kab/kota (BARRU, SOPPENG, PANGKEP, SIDRAP, TATOR, LUTRA, LUTIM, TORUT, MAKASSAR, dst.). Admin cukup membagikan kode ke tim. |
+| `ANGGOTA_TIM` | **Diisi sendiri oleh anggota** dari aplikasi (nama, pangkat/golongan, NIP) saat pertama masuk. Admin tidak perlu mengetik. Hapus barisnya bila ada yang salah daftar. |
+| `MASTER_WILAYAH` | Satu baris per desa: Kabupaten/Kota, Kecamatan, Desa/Kelurahan. Bisa disalin dari MASTER_WILAYAH logbook ASS; penulisan kabupaten bebas ("BARRU", "Kab. Barru", "Kabupaten Barru" sama saja) dan kolom tambahan tidak mengganggu. |
 | `PENGATURAN_LAPORAN` | Teks baku Nota Dinas (Hal, nama kegiatan, tujuan, DPA, dll). Baris bertanda **PERLU DIKONFIRMASI** sebaiknya disesuaikan dengan teks resmi Dinkes. Perubahan berlaku di semua HP setelah "Perbarui data master". |
 
-Penting:
-- Tulisan **Kabupaten/Kota harus sama persis** di MASTER_TIM dan MASTER_WILAYAH (mis. sama-sama "Kabupaten Soppeng").
-- Format kolom **NIP** sebagai *Teks biasa* (Format → Angka → Teks biasa) agar 18 digit tidak berubah.
-- Hapus baris contoh (CONTOH01, Contoh Desa) setelah data asli diisi.
+Jika sheet sudah terlanjur dibuat dengan format MASTER_TIM lama (ada kolom Nama Anggota), jalankan fungsi **`isiMasterTim`** sekali dari editor Apps Script.
 
 Sheet berikut terisi otomatis dari aplikasi: `MONEV_CAPAIAN` (1 baris per desa), `DAFTAR_BALITA_TL`, `KESEPAKATAN_TL`,
 `FOTO_MONEV` (link foto & tanda tangan), `LAPORAN_PERJADIN` (arsip laporan + link .docx).
@@ -54,7 +52,7 @@ Bila file aplikasi diperbarui, naikkan nama cache di `sw.js` (mis. `monev-ass-v2
 ---
 
 ## Cara pakai (untuk tim)
-1. **Masuk** dengan kode tim → Kab/Kota tugas, daftar desa, dan nama anggota terisi otomatis.
+1. **Masuk** dengan kode tim (nama kab/kota, mis. BARRU). Pertama kali, isi **Profil Saya** (nama, pangkat/golongan, NIP). Profil bisa diubah lewat ⚙️ → Profil saya.
 2. **＋ Monev Desa**: Identitas → Indikator 1–13 → Daftar balita → Kesepakatan & tanda tangan (Tim, Pemdes, Kader) → Foto (opsional, maks. 5) → Ringkasan → **Simpan & Kirim**.
    - Angka "Belum", persentase, cakupan gabungan, dan **warna desa** dihitung otomatis.
    - Muncul peringatan bila angka janggal (mis. penerima > sasaran).

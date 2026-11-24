@@ -38,6 +38,62 @@ const getUrl = () => (localStorage.getItem(K.url) || CONFIG.SCRIPT_URL || '').tr
 A.sess = () => sess; A.recs = () => recs; A.saveRecs = saveRecs;
 const findRec = id => recs.find(r => r.id === id);
 
+/* ---------- Profil anggota (diisi sendiri oleh tiap anggota) ---------- */
+const KP = 'mass_profil';
+let profil = load(KP, null);
+const saveProfil = () => localStorage.setItem(KP, JSON.stringify(profil));
+function anggotaTim() {
+  const list = (sess?.anggota || []).map(a => ({ ...a }));
+  if (profil) {
+    const me = { id: profil.id, nama: profil.nama, pangkat: profil.pangkat, nip: profil.nip };
+    const i = list.findIndex(a => a.id === profil.id);
+    if (i >= 0) list[i] = me; else list.push(me);
+  }
+  return list;
+}
+A.anggotaTim = anggotaTim;
+const GOLONGAN = ['Pengatur Muda / II a', 'Pengatur Muda Tk. I / II b', 'Pengatur / II c', 'Pengatur Tk. I / II d',
+  'Penata Muda / III a', 'Penata Muda Tk. I / III b', 'Penata / III c', 'Penata Tk. I / III d',
+  'Pembina / IV a', 'Pembina Tk. I / IV b', 'Pembina Utama Muda / IV c', 'Pembina Utama Madya / IV d', 'Pembina Utama / IV e'];
+async function kirimProfil() {
+  if (!profil || !sess?.kode || !navigator.onLine || !getUrl()) return;
+  if (profil.synced && profil.kode === sess.kode) return;
+  const j = await api('profil', { profil: { id: profil.id, nama: profil.nama, pangkat: profil.pangkat, nip: profil.nip } });
+  profil.synced = true; profil.kode = sess.kode; saveProfil();
+  if (j.anggota) { sess.anggota = j.anggota; saveSess(); }
+}
+function profilView(pertama) {
+  setNav(null); scrollTo(0, 0);
+  $('#hdSub').textContent = sess.tim.nama;
+  const p = profil || {}, lain = p.pangkat && !GOLONGAN.includes(p.pangkat);
+  const pil = lain ? (/^PPPK/i.test(p.pangkat) ? 'PPPK' : 'LAIN') : (p.pangkat || '');
+  app.innerHTML = `<div class="card"><h3 class="t">👤 Profil Saya</h3>
+    <div class="hint">${pertama ? `Selamat datang di <b>${esc(sess.tim.nama)}</b>. Isi profil sekali saja; nama Anda akan muncul sebagai anggota tim dan di tanda tangan laporan perjadin.` : 'Perubahan profil akan dikirim ke server saat online.'}</div>
+    <label class="f req">Nama lengkap dan gelar</label><input type="text" id="pNama" value="${esc(p.nama)}" placeholder="mis. Andi Dian Purnama, S.Gz., M.KM">
+    <label class="f req">Pangkat/Golongan</label><select id="pGol"><option value="">— pilih —</option>
+      ${GOLONGAN.map(g => `<option ${pil === g ? 'selected' : ''}>${g}</option>`).join('')}
+      <option value="PPPK" ${pil === 'PPPK' ? 'selected' : ''}>PPPK (tulis golongannya)</option>
+      <option value="LAIN" ${pil === 'LAIN' ? 'selected' : ''}>Non-ASN / lainnya</option></select>
+    <div id="pLainBox" class="${pil === 'PPPK' || pil === 'LAIN' ? '' : 'hide'}"><label class="f">Keterangan pangkat/golongan</label><input type="text" id="pLain" value="${esc(lain ? p.pangkat : '')}" placeholder="mis. PPPK Golongan IX"></div>
+    <label class="f" id="nipLab">NIP (18 angka)</label><input type="text" id="pNip" inputmode="numeric" maxlength="18" value="${esc(p.nip)}" placeholder="18 digit tanpa spasi">
+    <button class="btn btn-p btn-big" id="pSave" style="margin-top:16px">Simpan Profil</button>
+    ${pertama ? '' : '<button class="btn btn-o" id="pBack" style="width:100%;margin-top:8px">Batal</button>'}</div>${footer()}`;
+  $('#pGol').onchange = e => $('#pLainBox').classList.toggle('hide', !['PPPK', 'LAIN'].includes(e.target.value));
+  $('#pNip').oninput = e => e.target.value = e.target.value.replace(/\D/g, '');
+  if (!pertama) $('#pBack').onclick = home;
+  $('#pSave').onclick = async () => {
+    const nama = $('#pNama').value.trim(), g = $('#pGol').value, nip = $('#pNip').value.trim();
+    const pangkat = g === 'PPPK' || g === 'LAIN' ? ($('#pLain').value.trim() || (g === 'PPPK' ? 'PPPK' : 'Non-ASN')) : g;
+    if (!nama || !g) return toast('Isi nama dan pangkat/golongan');
+    if (g !== 'LAIN' && !/^\d{18}$/.test(nip)) return toast('NIP harus 18 angka');
+    profil = { id: profil?.id || newId('AG'), nama, pangkat, nip, synced: false };
+    saveProfil();
+    try { await kirimProfil(); } catch (e) { console.warn(e); }
+    toast('Profil tersimpan ✔'); home();
+  };
+}
+A.profilView = profilView;
+
 /* ---------- UI helpers ---------- */
 function toast(msg, ms = 2800) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), ms); }
 function modal(html) {
@@ -80,7 +136,7 @@ A.api = api;
 function loginView(msg) {
   setNav(null);
   app.innerHTML = `<div class="card" style="margin-top:20px;text-align:center">
-    <div style="display:flex;justify-content:center;align-items:center;gap:16px"><img src="icons/logo-sulsel.png" style="width:72px"><img src="icons/logo-poltekkes.png" style="height:48px"></div><h3 class="t" style="margin-top:8px">Monitoring Evaluasi Capaian<br>Program Gizi Aksi Stop Stunting</h3>
+    <div style="display:flex;justify-content:center;align-items:center;gap:16px"><img src="icons/logo-sulsel.png" style="height:80px"><img src="icons/logo-poltekkes.png" style="height:80px;padding:14px 0"></div><h3 class="t" style="margin-top:8px">Monitoring Evaluasi Capaian<br>Program Gizi Aksi Stop Stunting</h3>
     <p class="hint">Masukkan kode tim dari Dinas Kesehatan Provinsi. Login pertama perlu internet; setelah itu aplikasi bisa dipakai tanpa sinyal.</p>
     <input type="password" id="kode" placeholder="Kode tim" style="text-align:center;font-size:20px;letter-spacing:2px" autocomplete="off">
     ${msg ? `<div class="warn">${esc(msg)}</div>` : ''}
@@ -94,7 +150,8 @@ function loginView(msg) {
     if (!kode) return toast('Isi kode tim');
     if (!navigator.onLine) return toast('Login pertama perlu internet');
     $('#bLogin').disabled = true; $('#bLogin').textContent = 'Memeriksa…';
-    try { sess = { kode: kode.toUpperCase() }; await muatMaster(); toast('Selamat datang, ' + sess.tim.nama); home(); }
+    try { sess = { kode: kode.toUpperCase() }; await muatMaster(); if (profil) { profil.synced = false; saveProfil(); try { await kirimProfil(); } catch (e) {} }
+      toast('Selamat datang, ' + sess.tim.nama); profil ? home() : profilView(true); }
     catch (e) { sess = null; localStorage.removeItem(K.sess); loginView(e.message); }
   };
 }
@@ -117,8 +174,9 @@ A.muatMaster = muatMaster;
 function menu() {
   if (!sess?.tim) return;
   const c = modal(`<h3 class="t">⚙️ Menu</h3>
-    <div class="mini"><b>${esc(sess.tim.nama)}</b> <span class="m">(kode: ${esc(sess.kode)})</span><div class="m">Wilayah: ${esc(sess.tim.kab.join(', '))}<br>Anggota: ${esc(sess.anggota.map(a => a.nama).join(', '))}<br>Data master diperbarui: ${fmtWaktu(sess.at)}</div></div>
+    <div class="mini"><b>${esc(sess.tim.nama)}</b> <span class="m">(kode: ${esc(sess.kode)})</span><div class="m">Wilayah: ${esc(sess.tim.kab.join(', '))}<br>Anggota: ${esc(anggotaTim().map(a => a.nama).join(', ') || '-')}<br>Data master diperbarui: ${fmtWaktu(sess.at)}</div></div>
     <div style="display:grid;gap:8px">
+      <button class="btn btn-o" data-a="profil">👤 Profil saya${profil ? ' (' + esc(profil.nama) + ')' : ''}</button>
       <button class="btn btn-o" data-a="master">🔄 Perbarui data master & data tim</button>
       <button class="btn btn-o" data-a="kamus">📖 Kamus singkat</button>
       <button class="btn btn-o" data-a="url">🌐 Pengaturan server</button>
@@ -127,6 +185,7 @@ function menu() {
   c.querySelectorAll('[data-a]').forEach(b => b.onclick = async () => {
     const a = b.dataset.a;
     if (a === 'x') return closeModal();
+    if (a === 'profil') { closeModal(); return profilView(false); }
     if (a === 'master') { if (!navigator.onLine) return toast('Perlu internet'); b.textContent = 'Memuat…';
       try { await muatMaster(); closeModal(); toast('Data master diperbarui'); home(); } catch (e) { toast(e.message); b.textContent = '🔄 Perbarui data master & data tim'; } }
     if (a === 'kamus') { const k = modal(`<h3 class="t">📖 Kamus Singkat</h3>${Object.entries(KAMUS).map(([x, y]) => `<p style="margin:6px 0"><b>${esc(x)}</b>: ${esc(y)}</p>`).join('')}<button class="btn btn-o" style="width:100%">Tutup</button>`); k.querySelector('button').onclick = closeModal; }
@@ -160,6 +219,7 @@ A.badgeWarna = badgeWarna;
 
 function home() {
   if (!sess?.tim) return loginView();
+  if (!profil) return profilView(true);
   $('#hdSub').textContent = sess.tim.nama + ' · ' + sess.tim.kab.join(', ');
   setNav(null); scrollTo(0, 0);
   const list = recs.filter(r => r.kode === sess.kode).sort((a, b) => (b.tanggal || '').localeCompare(a.tanggal || '') || b.updated - a.updated);
@@ -192,7 +252,7 @@ A.home = home;
 function blankRec() {
   const kab = sess.tim.kab.length === 1 ? sess.tim.kab[0] : '';
   return { id: newId('MC'), kode: sess.kode, kab, kec: '', desa: '', tanggal: today(),
-    tim: sess.anggota.map(a => a.nama).join(', '), pendamping: '', periode: '',
+    tim: anggotaTim().map(a => a.nama).join(', '), pendamping: '', periode: '',
     v: {}, kendala: {}, rencana: {}, balita: [], sepakat: [{}, {}, {}], ulang: '',
     ttd: { tim: { nama: '' }, desa: { nama: '' }, kader: { nama: '' } }, foto: [],
     status: 'draf', synced: false, created: Date.now(), updated: Date.now() };
@@ -492,6 +552,7 @@ let syncing = false;
 async function sync(manual) {
   if (syncing || !navigator.onLine || !getUrl() || !sess?.tim) { refreshStatus(); return; }
   syncing = true; let ok = 0, fail = 0;
+  try { await kirimProfil(); } catch (e) { console.warn('profil', e); }
   for (const r of recs.filter(x => x.status === 'final' && !x.synced && x.kode === sess.kode)) {
     const ver = r.updated;
     try {

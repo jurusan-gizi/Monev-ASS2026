@@ -6,19 +6,21 @@
  * 1. Buat Google Sheet BARU → Ekstensi → Apps Script → hapus isi, tempel seluruh kode ini → Simpan.
  * 2. Periksa ROOT_FOLDER_ID di bawah (folder induk dokumentasi ASS di Google Drive).
  * 3. Pilih fungsi `setup` → Jalankan → izinkan akses. Semua sheet akan dibuat otomatis.
- * 4. Isi sheet MASTER_WILAYAH, MASTER_TIM, dan cek PENGATURAN_LAPORAN.
+ * 4. Isi sheet MASTER_WILAYAH dan cek PENGATURAN_LAPORAN. MASTER_TIM (kode = nama kab/kota) terisi otomatis;
+ *    anggota tim mendaftar sendiri dari aplikasi ke sheet ANGGOTA_TIM.
  * 5. Terapkan → Deployment baru → Aplikasi web: Jalankan sebagai "Saya", Akses "Siapa saja" → salin URL /exec.
  */
 const ROOT_FOLDER_ID = '1J0kBlBFOxLz2P18qOaspdKmeyqccOy4I'; // folder "ASS 2026 - Dokumentasi Kegiatan"
 const SUBFOLDER = 'Monev Capaian';
 
 const SH = {
-  WIL: 'MASTER_WILAYAH', TIM: 'MASTER_TIM', SET: 'PENGATURAN_LAPORAN',
+  WIL: 'MASTER_WILAYAH', TIM: 'MASTER_TIM', AGT: 'ANGGOTA_TIM', SET: 'PENGATURAN_LAPORAN',
   MONEV: 'MONEV_CAPAIAN', BALITA: 'DAFTAR_BALITA_TL', SEPAKAT: 'KESEPAKATAN_TL', FOTO: 'FOTO_MONEV', LAP: 'LAPORAN_PERJADIN'
 };
 const HEADERS = {
   MASTER_WILAYAH: ['Kabupaten/Kota', 'Kecamatan', 'Desa/Kelurahan'],
-  MASTER_TIM: ['Kode Tim', 'Nama Tim', 'Kabupaten/Kota Tugas', 'Nama Anggota', 'Pangkat/Golongan', 'NIP'],
+  MASTER_TIM: ['Kode Tim', 'Kabupaten/Kota'],
+  ANGGOTA_TIM: ['ID', 'Waktu Terima', 'Kode Tim', 'Kabupaten/Kota', 'Nama', 'Pangkat/Golongan', 'NIP'],
   PENGATURAN_LAPORAN: ['Kunci', 'Nilai', 'Keterangan'],
   MONEV_CAPAIAN: ['ID', 'Waktu Terima'], DAFTAR_BALITA_TL: ['ID', 'Waktu Terima'], KESEPAKATAN_TL: ['ID', 'Waktu Terima'],
   FOTO_MONEV: ['ID', 'Waktu Terima'], LAPORAN_PERJADIN: ['ID', 'Waktu Terima']
@@ -49,15 +51,30 @@ function setup() {
   });
   const set = ss.getSheetByName(SH.SET);
   if (set.getLastRow() === 1) set.getRange(2, 1, DEFAULT_SET.length, 3).setValues(DEFAULT_SET);
-  const tim = ss.getSheetByName(SH.TIM);
-  if (tim.getLastRow() === 1) tim.getRange(2, 1, 2, 6).setValues([
-    ['CONTOH01', 'Tim 1 Soppeng', 'Kabupaten Soppeng', 'Nama Anggota Pertama, S.Gz', 'Penata Tk. I / III d', '198800000000000000'],
-    ['CONTOH01', 'Tim 1 Soppeng', 'Kabupaten Soppeng', 'Nama Anggota Kedua, SKM', 'Penata / III c', '199000000000000000']]);
+  if (ss.getSheetByName(SH.TIM).getLastRow() <= 1) isiMasterTim();
   const wil = ss.getSheetByName(SH.WIL);
   if (wil.getLastRow() === 1) wil.getRange(2, 1, 2, 3).setValues([['Kabupaten Soppeng', 'Contoh Kecamatan', 'Contoh Desa A'], ['Kabupaten Soppeng', 'Contoh Kecamatan', 'Contoh Desa B']]);
   ['MONEV_CAPAIAN', 'DAFTAR_BALITA_TL', 'KESEPAKATAN_TL', 'FOTO_MONEV', 'LAPORAN_PERJADIN'].forEach(n => ss.setActiveSheet(ss.getSheetByName(n)));
   ss.setActiveSheet(ss.getSheetByName(SH.TIM));
   DriveApp.getFolderById(ROOT_FOLDER_ID); // memastikan izin Drive
+}
+
+/* Kode tim = nama kabupaten/kota. Jalankan sekali untuk mengisi/menyusun ulang MASTER_TIM (24 kab/kota Sulsel). */
+const KABKOTA_SULSEL = [
+  ['SELAYAR', 'Kabupaten Kepulauan Selayar'], ['BULUKUMBA', 'Kabupaten Bulukumba'], ['BANTAENG', 'Kabupaten Bantaeng'],
+  ['JENEPONTO', 'Kabupaten Jeneponto'], ['TAKALAR', 'Kabupaten Takalar'], ['GOWA', 'Kabupaten Gowa'], ['SINJAI', 'Kabupaten Sinjai'],
+  ['MAROS', 'Kabupaten Maros'], ['PANGKEP', 'Kabupaten Pangkajene dan Kepulauan'], ['BARRU', 'Kabupaten Barru'], ['BONE', 'Kabupaten Bone'],
+  ['SOPPENG', 'Kabupaten Soppeng'], ['WAJO', 'Kabupaten Wajo'], ['SIDRAP', 'Kabupaten Sidenreng Rappang'], ['PINRANG', 'Kabupaten Pinrang'],
+  ['ENREKANG', 'Kabupaten Enrekang'], ['LUWU', 'Kabupaten Luwu'], ['TATOR', 'Kabupaten Tana Toraja'], ['LUTRA', 'Kabupaten Luwu Utara'],
+  ['LUTIM', 'Kabupaten Luwu Timur'], ['TORUT', 'Kabupaten Toraja Utara'], ['MAKASSAR', 'Kota Makassar'], ['PAREPARE', 'Kota Parepare'], ['PALOPO', 'Kota Palopo']];
+function isiMasterTim() {
+  const sh = SpreadsheetApp.getActive().getSheetByName(SH.TIM);
+  sh.clear();
+  sh.getRange(1, 1, 1, 2).setValues([HEADERS.MASTER_TIM]).setFontWeight('bold').setBackground('#C8102E').setFontColor('#ffffff');
+  sh.getRange(2, 1, KABKOTA_SULSEL.length, 2).setValues(KABKOTA_SULSEL);
+  sh.setFrozenRows(1);
+  const ss = SpreadsheetApp.getActive();
+  if (!ss.getSheetByName(SH.AGT)) { const a = ss.insertSheet(SH.AGT); a.appendRow(HEADERS.ANGGOTA_TIM); a.getRange(1, 1, 1, HEADERS.ANGGOTA_TIM.length).setFontWeight('bold').setBackground('#C8102E').setFontColor('#ffffff'); a.setFrozenRows(1); }
 }
 
 function doGet() { return json({ ok: true, app: 'Monev Capaian Gizi ASS', sheet: SpreadsheetApp.getActive().getName() }); }
@@ -70,6 +87,7 @@ function doPost(e) {
     if (!tim) return json({ ok: false, error: 'Kode tim tidak terdaftar' });
     if (d.action === 'login') return json(login(tim));
     if (d.action === 'upload') return json(upload(d));
+    if (d.action === 'profil') return json(simpanProfil(d, tim));
     const lock = LockService.getScriptLock(); lock.waitLock(30000);
     try {
       if (d.action === 'simpanMonev') return json(simpanMonev(d, tim));
@@ -86,13 +104,30 @@ function rows(name) {
 }
 function cariTim(kode) {
   kode = String(kode || '').trim().toUpperCase(); if (!kode) return null;
-  const r = rows(SH.TIM).filter(x => String(x[0]).trim().toUpperCase() === kode);
+  const sh = SpreadsheetApp.getActive().getSheetByName(SH.TIM); if (!sh || sh.getLastRow() < 2) return null;
+  const data = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getDisplayValues();
+  const ik = kolom(data[0], ['kode'], 0), ib = kolom(data[0], ['kab', 'kota'], 1);
+  const r = data.slice(1).filter(x => String(x[ik]).trim().toUpperCase() === kode);
   if (!r.length) return null;
-  const kab = [...new Set(r.flatMap(x => String(x[2]).split(/[,;]/).map(s => s.trim()).filter(Boolean)))];
-  return { kode: kode, nama: r[0][1] || kode, kab: kab, anggota: r.map(x => ({ nama: x[3], pangkat: x[4], nip: x[5] })).filter(a => a.nama) };
+  const kab = [...new Set(r.flatMap(x => String(x[ib]).split(/[,;]/).map(t => t.trim()).filter(Boolean)))];
+  const anggota = rows(SH.AGT).filter(x => String(x[2]).toUpperCase() === kode)
+    .map(x => ({ id: x[0], nama: x[4], pangkat: x[5], nip: String(x[6]).replace(/^'/, '') })).filter(a => a.nama);
+  return { kode: kode, nama: 'Tim ' + kab.join(' & '), kab: kab, anggota: anggota };
+}
+function simpanProfil(d, tim) {
+  const p = d.profil || {};
+  if (!p.id || !p.nama) return { ok: false, error: 'Profil belum lengkap' };
+  upsert(SH.AGT, p.id, { 'Waktu Terima': new Date(), 'Kode Tim': tim.kode, 'Kabupaten/Kota': tim.kab.join(', '),
+    'Nama': p.nama, 'Pangkat/Golongan': p.pangkat || '', 'NIP': p.nip ? "'" + p.nip : '' });
+  return { ok: true, anggota: cariTim(tim.kode).anggota };
 }
 /* Nama kabupaten dicocokkan longgar: "Kabupaten Barru" = "Kab. Barru" = "BARRU" */
-function normKab(x) { return String(x || '').toLowerCase().replace(/^\s*(kabupaten|kab\.?|kota)\s+/, '').replace(/\s+/g, ' ').trim(); }
+const ALIAS_KAB = { 'kepulauan selayar': 'selayar', 'pangkajene dan kepulauan': 'pangkep', 'pangkajene kepulauan': 'pangkep',
+  'sidenreng rappang': 'sidrap', 'tana toraja': 'tator', 'toraja utara': 'torut', 'luwu utara': 'lutra', 'luwu timur': 'lutim', 'pare-pare': 'parepare', 'pare pare': 'parepare', 'kep. selayar': 'selayar', 'kep selayar': 'selayar' };
+function normKab(x) {
+  const k = String(x || '').toLowerCase().replace(/^\s*(kabupaten|kab\.?|kota)\s+/, '').replace(/\s+/g, ' ').trim();
+  return ALIAS_KAB[k] || k;
+}
 function kolom(h, kata, cadangan) {
   const i = h.findIndex(x => kata.some(k => String(x).toLowerCase().indexOf(k) >= 0));
   return i >= 0 ? i : cadangan;
