@@ -23,7 +23,7 @@ Developed : Manjilala, S.Gz, M.Gizi | Poltekkes Kemenkes Makassar | DPD PERSAGI 
 | `MASTER_TIM` | **Terisi otomatis** 24 kab/kota Sulsel. Kode tim = nama kab/kota (BARRU, SOPPENG, PANGKEP, SIDRAP, TATOR, LUTRA, LUTIM, TORUT, MAKASSAR, dst.). Admin cukup membagikan kode ke tim. |
 | `ANGGOTA_TIM` | **Diisi sendiri oleh anggota** dari aplikasi (nama, pangkat/golongan, NIP) saat pertama masuk. Admin tidak perlu mengetik. Hapus barisnya bila ada yang salah daftar. |
 | `MASTER_WILAYAH` | Satu baris per desa: Kabupaten/Kota, Kecamatan, Desa/Kelurahan. Bisa disalin dari MASTER_WILAYAH logbook ASS; penulisan kabupaten bebas ("BARRU", "Kab. Barru", "Kabupaten Barru" sama saja) dan kolom tambahan tidak mengganggu. |
-| `PENGATURAN_LAPORAN` | Teks baku Nota Dinas (Hal, nama kegiatan, tujuan, DPA, dll). Baris bertanda **PERLU DIKONFIRMASI** sebaiknya disesuaikan dengan teks resmi Dinkes. Perubahan berlaku di semua HP setelah "Perbarui data master". |
+| `PENGATURAN_LAPORAN` | Teks baku Nota Dinas (Hal, nama kegiatan, tujuan, DPA, dll). Baris bertanda **PERLU DIKONFIRMASI** sebaiknya disesuaikan dengan teks resmi Dinkes. Perubahan berlaku di semua HP setelah menu ☰ → "Perbarui Data". |
 
 Jika sheet sudah terlanjur dibuat dengan format MASTER_TIM lama (ada kolom Nama Anggota), jalankan fungsi **`isiMasterTim`** sekali dari editor Apps Script.
 
@@ -52,14 +52,14 @@ Bila file aplikasi diperbarui, naikkan nama cache di `sw.js` (mis. `monev-ass-v2
 ---
 
 ## Cara pakai (untuk tim)
-1. **Masuk** dengan kode tim (nama kab/kota, mis. BARRU). Pertama kali, isi **Profil Saya** (nama, pangkat/golongan, NIP). Profil bisa diubah lewat ⚙️ → Profil saya.
+1. **Masuk** dengan kode tim (nama kab/kota, mis. BARRU). Pertama kali, isi **Profil Saya** (nama, pangkat/golongan, NIP). Profil bisa diubah lewat menu ☰ → Profil Saya.
 2. **＋ Monev Desa**: Identitas → Indikator 1–13 → Daftar balita → Kesepakatan & tanda tangan (Tim, Pemdes, Kader) → Foto (opsional, maks. 5) → Ringkasan → **Simpan & Kirim**.
    - Angka "Belum", persentase, cakupan gabungan, dan **warna desa** dihitung otomatis.
    - Muncul peringatan bila angka janggal (mis. penerima > sasaran).
    - Istilah bergaris biru bisa diketuk untuk melihat artinya.
 3. **📄 Laporan Perjadin**: pilih desa yang dikunjungi → isi nomor nota dinas & surat tugas → draf A–E tersusun otomatis →
    edit seperlunya → tanda tangan semua pelaksana di layar → **⬇️ .docx** untuk unduh, **Simpan ✔** untuk arsip ke Sheet & Drive.
-4. Data dari HP anggota lain dalam tim yang sama ikut muncul setelah ⚙️ → **Perbarui data master & data tim**,
+4. Data dari HP anggota lain dalam tim yang sama ikut muncul setelah menu ☰ → **Perbarui Data**,
    jadi laporan bisa disusun dari HP siapa saja.
 
 ## Catatan

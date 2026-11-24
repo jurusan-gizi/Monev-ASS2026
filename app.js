@@ -63,7 +63,7 @@ async function kirimProfil() {
   if (j.anggota) { sess.anggota = j.anggota; saveSess(); }
 }
 function profilView(pertama) {
-  setNav(null); scrollTo(0, 0);
+  setNav(null); scrollTo(0, 0); renderSide();
   $('#hdSub').textContent = sess.tim.nama;
   const p = profil || {}, lain = p.pangkat && !GOLONGAN.includes(p.pangkat);
   const pil = lain ? (/^PPPK/i.test(p.pangkat) ? 'PPPK' : 'LAIN') : (p.pangkat || '');
@@ -134,7 +134,7 @@ A.api = api;
 
 /* ---------- Login & master ---------- */
 function loginView(msg) {
-  setNav(null);
+  setNav(null); renderSide();
   app.innerHTML = `<div class="card" style="margin-top:20px;text-align:center">
     <div style="display:flex;justify-content:center;align-items:center;gap:16px"><img src="icons/logo-sulsel.png" style="height:80px"><img src="icons/logo-poltekkes.png" style="height:80px;padding:14px 0"></div><h3 class="t" style="margin-top:8px">Monitoring Evaluasi Capaian<br>Program Gizi Aksi Stop Stunting</h3>
     <p class="hint">Masukkan kode tim dari Dinas Kesehatan Provinsi. Login pertama perlu internet; setelah itu aplikasi bisa dipakai tanpa sinyal.</p>
@@ -171,35 +171,51 @@ async function muatMaster() {
 }
 A.muatMaster = muatMaster;
 
-function menu() {
-  if (!sess?.tim) return;
-  const c = modal(`<h3 class="t">⚙️ Menu</h3>
-    <div class="mini"><b>${esc(sess.tim.nama)}</b> <span class="m">(kode: ${esc(sess.kode)})</span><div class="m">Wilayah: ${esc(sess.tim.kab.join(', '))}<br>Anggota: ${esc(anggotaTim().map(a => a.nama).join(', ') || '-')}<br>Data master diperbarui: ${fmtWaktu(sess.at)}</div></div>
-    <div style="display:grid;gap:8px">
-      <button class="btn btn-o" data-a="profil">👤 Profil saya${profil ? ' (' + esc(profil.nama) + ')' : ''}</button>
-      <button class="btn btn-o" data-a="master">🔄 Perbarui data master & data tim</button>
-      <button class="btn btn-o" data-a="kamus">📖 Kamus singkat</button>
-      <button class="btn btn-o" data-a="url">🌐 Pengaturan server</button>
-      <button class="btn btn-o" data-a="out" style="color:var(--merah)">🚪 Keluar / ganti kode tim</button>
-      <button class="btn btn-o" data-a="x">Tutup</button></div>`);
-  c.querySelectorAll('[data-a]').forEach(b => b.onclick = async () => {
-    const a = b.dataset.a;
-    if (a === 'x') return closeModal();
-    if (a === 'profil') { closeModal(); return profilView(false); }
-    if (a === 'master') { if (!navigator.onLine) return toast('Perlu internet'); b.textContent = 'Memuat…';
-      try { await muatMaster(); closeModal(); toast('Data master diperbarui'); home(); } catch (e) { toast(e.message); b.textContent = '🔄 Perbarui data master & data tim'; } }
-    if (a === 'kamus') { const k = modal(`<h3 class="t">📖 Kamus Singkat</h3>${Object.entries(KAMUS).map(([x, y]) => `<p style="margin:6px 0"><b>${esc(x)}</b>: ${esc(y)}</p>`).join('')}<button class="btn btn-o" style="width:100%">Tutup</button>`); k.querySelector('button').onclick = closeModal; }
-    if (a === 'url') { const k = modal(`<h3 class="t">🌐 Server</h3><label class="f">URL Web App Apps Script</label><input type="text" id="sUrl" value="${esc(getUrl())}">
-      <div class="acts" style="justify-content:flex-end"><button class="btn btn-o" data-x>Tutup</button><button class="btn btn-p" data-s>Simpan</button></div>`);
-      k.querySelector('[data-x]').onclick = closeModal; k.querySelector('[data-s]').onclick = () => { localStorage.setItem(K.url, $('#sUrl').value.trim()); closeModal(); toast('Disimpan'); sync(true); }; }
-    if (a === 'out') {
-      const pend = recs.filter(r => !r.synced).length + (A.pendingLap ? A.pendingLap() : 0);
-      confirmBox(pend ? `Masih ada <b>${pend}</b> data belum terkirim. Jika keluar, data di HP ini <b>tetap tersimpan</b> dan akan terkirim setelah masuk lagi dengan kode yang sama.` : 'Keluar dari tim ini?', 'Keluar',
-        () => { localStorage.removeItem(K.sess); sess = null; loginView(); });
-    }
-  });
+/* ---------- Sidebar menu ---------- */
+const side = $('#side'), scrim = $('#scrim');
+let navAktif = 'home';
+function bukaSide(v) { side.classList.toggle('open', v); scrim.classList.toggle('hide', !v); }
+$('#btnMenu').onclick = () => bukaSide(true);
+scrim.onclick = () => bukaSide(false);
+function renderSide() {
+  const masuk = !!sess?.tim;
+  document.body.classList.toggle('masuk', masuk);
+  side.classList.toggle('hide', !masuk); $('#btnMenu').classList.toggle('hide', !masuk);
+  if (!masuk) { bukaSide(false); return; }
+  const item = (k, ic, t, cls = '') => `<button data-nav="${k}" class="${navAktif === k ? 'on' : ''} ${cls}"><span class="ic">${ic}</span>${t}</button>`;
+  side.innerHTML = `<div class="sd-top"><div class="sd-logos"><img src="icons/logo-sulsel.png" alt=""><img src="icons/logo-poltekkes.png" alt="" style="height:36px"></div>
+      <div class="sd-tim">${esc(sess.tim.nama)}</div><div class="sd-me">Kode: ${esc(sess.kode)}${profil ? '<br>👤 ' + esc(profil.nama) : ''}</div></div>
+    <nav class="sd-nav">
+      ${item('home', '🏠', 'Beranda')}${item('baru', '📝', 'Monev Desa Baru')}${item('laporan', '📄', 'Laporan Perjadin')}<hr>
+      ${item('profil', '👤', 'Profil Saya')}${item('master', '🔄', 'Perbarui Data')}${item('kamus', '📖', 'Kamus Singkat')}${item('url', '🌐', 'Pengaturan Server')}<hr>
+      ${item('out', '🚪', 'Keluar', 'out')}</nav>
+    <div class="sd-foot">Developed : <b>Manjilala, S.Gz, M.Gizi</b><br>Poltekkes Kemenkes Makassar<br>DPD PERSAGI Sulsel</div>`;
+  side.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => { bukaSide(false); nav(b.dataset.nav, b); });
 }
-$('#btnMenu').onclick = () => sess?.tim ? menu() : null;
+A.renderSide = renderSide;
+function setAktif(k) { navAktif = k; side.querySelectorAll('[data-nav]').forEach(b => b.classList.toggle('on', b.dataset.nav === k)); }
+A.setAktif = setAktif;
+async function nav(k, btn) {
+  if (k === 'home') return home();
+  if (k === 'baru') { const r = blankRec(); recs.push(r); saveRecs(); setAktif('baru'); return step(r, 0); }
+  if (k === 'laporan') { setAktif('laporan'); return A.laporanHome(); }
+  if (k === 'profil') { setAktif('profil'); return profilView(false); }
+  if (k === 'master') {
+    if (!navigator.onLine) return toast('Perlu internet');
+    toast('Memperbarui data…');
+    try { await muatMaster(); renderSide(); toast('Data master & data tim diperbarui ✔'); home(); } catch (e) { toast(e.message); }
+    return;
+  }
+  if (k === 'kamus') { const c = modal(`<h3 class="t">📖 Kamus Singkat</h3>${Object.entries(KAMUS).map(([x, y]) => `<p style="margin:6px 0"><b>${esc(x)}</b>: ${esc(y)}</p>`).join('')}<button class="btn btn-o" style="width:100%">Tutup</button>`); c.querySelector('button').onclick = closeModal; return; }
+  if (k === 'url') { const c = modal(`<h3 class="t">🌐 Server</h3><label class="f">URL Web App Apps Script</label><input type="text" id="sUrl" value="${esc(getUrl())}">
+      <div class="acts" style="justify-content:flex-end"><button class="btn btn-o" data-x>Tutup</button><button class="btn btn-p" data-s>Simpan</button></div>`);
+    c.querySelector('[data-x]').onclick = closeModal; c.querySelector('[data-s]').onclick = () => { localStorage.setItem(K.url, $('#sUrl').value.trim()); closeModal(); toast('Disimpan'); sync(true); }; return; }
+  if (k === 'out') {
+    const pend = recs.filter(r => !r.synced && r.status === 'final').length + (A.pendingLap ? A.pendingLap() : 0);
+    confirmBox(pend ? `Masih ada <b>${pend}</b> data belum terkirim. Jika keluar, data di HP ini <b>tetap tersimpan</b> dan akan terkirim setelah masuk lagi dengan kode yang sama.` : 'Keluar dari tim ini?', 'Keluar',
+      () => { localStorage.removeItem(K.sess); sess = null; renderSide(); loginView(); });
+  }
+}
 
 /* ---------- Beranda ---------- */
 function statusBar() {
@@ -220,7 +236,8 @@ A.badgeWarna = badgeWarna;
 function home() {
   if (!sess?.tim) return loginView();
   if (!profil) return profilView(true);
-  $('#hdSub').textContent = sess.tim.nama + ' · ' + sess.tim.kab.join(', ');
+  $('#hdSub').textContent = sess.tim.nama + (profil ? ' · ' + profil.nama : '');
+  renderSide(); setAktif('home');
   setNav(null); scrollTo(0, 0);
   const list = recs.filter(r => r.kode === sess.kode).sort((a, b) => (b.tanggal || '').localeCompare(a.tanggal || '') || b.updated - a.updated);
   app.innerHTML = `${statusBar()}
@@ -235,7 +252,7 @@ function home() {
         <button class="btn btn-o btn-sm" data-a="del" data-id="${r.id}">🗑️</button></div></div>`).join('')
       : `<div class="card empty">Belum ada data.<br>Tekan <b>＋ Monev Desa</b> untuk mulai.</div>`}
     ${footer()}`;
-  $('#bNew').onclick = () => { const r = blankRec(); recs.push(r); saveRecs(); step(r, 0); };
+  $('#bNew').onclick = () => nav('baru');
   $('#bLap').onclick = () => A.laporanHome();
   const b = $('#btnSync'); if (b) b.onclick = () => sync(true);
   app.querySelectorAll('[data-a]').forEach(el => el.onclick = () => {
@@ -250,7 +267,7 @@ A.home = home;
 
 /* ---------- Record ---------- */
 function blankRec() {
-  const kab = sess.tim.kab.length === 1 ? sess.tim.kab[0] : '';
+  const kab = sess.tim.kab[0] || '';
   return { id: newId('MC'), kode: sess.kode, kab, kec: '', desa: '', tanggal: today(),
     tim: anggotaTim().map(a => a.nama).join(', '), pendamping: '', periode: '',
     v: {}, kendala: {}, rencana: {}, balita: [], sepakat: [{}, {}, {}], ulang: '',
@@ -293,8 +310,8 @@ function validId(r) {
 
 /* Identitas */
 function viewId(r, i) {
-  const W = sess.wilayah.filter(w => sess.tim.kab.includes(w.kab));
-  const kabs = sess.tim.kab, kecs = [...new Set(W.filter(w => w.kab === r.kab).map(w => w.kec))];
+  const W = sess.wilayah;
+  const kabs = [...new Set([...sess.tim.kab, ...W.map(w => w.kab).sort()])], kecs = [...new Set(W.filter(w => w.kab === r.kab).map(w => w.kec))];
   const desas = W.filter(w => w.kab === r.kab && w.kec === r.kec).map(w => w.desa);
   const opt = (arr, v) => `<option value="">— pilih —</option>` + arr.map(x => `<option ${x === v ? 'selected' : ''}>${esc(x)}</option>`).join('');
   app.innerHTML = `${head(r, i)}<div class="card">
@@ -306,7 +323,7 @@ function viewId(r, i) {
     <label class="f req">Tim verifikasi</label><input type="text" id="tim" value="${esc(r.tim)}">
     <label class="f">Pendamping desa/kader</label><input type="text" id="pendamping" value="${esc(r.pendamping)}">
     <label class="f">Periode data</label><input type="text" id="periode" value="${esc(r.periode)}" placeholder="mis. Minggu ke-4 (per 5 November 2026)">
-    ${!W.length ? `<div class="warn">Belum ada data kecamatan/desa untuk <b>${esc(sess.tim.kab.join(', '))}</b>. Pastikan desanya sudah diisi di sheet MASTER_WILAYAH, lalu buka ⚙️ → <b>Perbarui data master</b> saat ada internet.</div>` : ''}
+    ${!desas.length && !kecs.length && r.kab ? `<div class="warn">Belum ada data kecamatan/desa untuk <b>${esc(r.kab || 'kabupaten ini')}</b>. Pastikan desanya sudah diisi di sheet MASTER_WILAYAH, lalu buka menu ☰ → <b>Perbarui Data</b> saat ada internet.</div>` : ''}
   </div>${footer()}`;
   $('#kab').onchange = e => { r.kab = e.target.value; r.kec = ''; r.desa = ''; touch(r); step(r, i); };
   $('#kec').onchange = e => { r.kec = e.target.value; r.desa = ''; touch(r); step(r, i); };

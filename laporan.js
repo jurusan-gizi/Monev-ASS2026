@@ -115,7 +115,8 @@ function laporanHome() {
       : `<div class="card empty">Belum ada laporan.<br>Laporan disusun otomatis dari desa yang sudah dimonev.</div>`}${footer()}`;
   const sb = $('#btnSync'); if (sb) sb.onclick = () => A.sync(true);
   $('#lNew').onclick = () => {
-    const kabs = sess().tim.kab;
+    const kabs = [...new Set(A.recs().filter(r => r.kode === sess().kode && r.status === 'final').map(r => r.kab))];
+    if (!kabs.length) return toast('Belum ada desa yang selesai dimonev (Simpan & Kirim)', 4000);
     if (kabs.length === 1) return buat(kabs[0]);
     const c = modal(`<h3 class="t">Pilih Kabupaten/Kota</h3>${kabs.map(k => `<button class="btn btn-o" style="width:100%;margin-bottom:8px" data-k="${esc(k)}">${esc(k)}</button>`).join('')}`);
     c.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { closeModal(); buat(b.dataset.k); });

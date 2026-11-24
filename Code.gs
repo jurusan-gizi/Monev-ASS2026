@@ -136,8 +136,9 @@ function login(tim) {
   const sh = SpreadsheetApp.getActive().getSheetByName(SH.WIL);
   const data = sh && sh.getLastRow() > 1 ? sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getDisplayValues() : [[]];
   const h = data[0], ik = kolom(h, ['kab', 'kota'], 0), ic = kolom(h, ['kec'], 1), id = kolom(h, ['desa', 'kel'], 2);
-  const peta = {}; tim.kab.forEach(k => peta[normKab(k)] = k);
-  const wilayah = data.slice(1).map(x => ({ kab: peta[normKab(x[ik])], kec: String(x[ic] || '').trim(), desa: String(x[id] || '').trim() }))
+  // semua kab/kota ditampilkan; nama kabupaten diseragamkan ke nama resmi
+  const peta = {}; KABKOTA_SULSEL.forEach(k => peta[normKab(k[1])] = k[1]); tim.kab.forEach(k => peta[normKab(k)] = k);
+  const wilayah = data.slice(1).map(x => ({ kab: peta[normKab(x[ik])] || String(x[ik] || '').trim(), kec: String(x[ic] || '').trim(), desa: String(x[id] || '').trim() }))
     .filter(w => w.kab && w.kec && w.desa);
   const pengaturan = {}; rows(SH.SET).forEach(x => { if (x[0]) pengaturan[String(x[0]).trim()] = x[1]; });
   return { ok: true, tim: { kode: tim.kode, nama: tim.nama, kab: tim.kab }, anggota: tim.anggota, wilayah: wilayah, pengaturan: pengaturan,

@@ -4,25 +4,48 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Monev Capaian Gizi ASS – Sulsel</title>
-<meta name="theme-color" content="#C8102E">
+<meta name="theme-color" content="#14A39E">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <style>
-:root{--merah:#C8102E;--merah-tua:#9E0B22;--emas:#E3A812;--emas-muda:#FFF4D1;--hijau:#008C45;--hijau-muda:#E3F5EB;
-  --biru:#0072BC;--abu:#F4F5F7;--teks:#1F2328;--redup:#667085;--garis:#E1E4E8;--r:14px}
+:root{--merah:#14A39E;--merah-tua:#0B7470;--emas:#B9CE1E;--emas-muda:#F5F9DE;--hijau:#3DB46D;--hijau-muda:#E4F6EA;
+  --biru:#3FA9C2;--abu:#F2F7F7;--tosca-muda:#E3F4F3;--side:268px;--teks:#1F2328;--redup:#667085;--garis:#E1E4E8;--r:14px}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--abu);color:var(--teks);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 button,input,select,textarea{font:inherit;color:inherit}
 .hide{display:none!important}
-header{background:linear-gradient(135deg,var(--merah),var(--merah-tua));color:#fff;padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top));
+.burger{background:rgba(255,255,255,.18);border:0;color:#fff;width:42px;height:42px;border-radius:12px;font-size:22px;cursor:pointer;flex:0 0 auto}
+aside#side{position:fixed;top:0;bottom:0;left:0;width:var(--side);background:#fff;border-right:1px solid var(--garis);z-index:40;
+  transform:translateX(-102%);transition:transform .22s ease;display:flex;flex-direction:column;overflow-y:auto}
+aside#side.open{transform:none;box-shadow:4px 0 24px rgba(0,0,0,.15)}
+#scrim{position:fixed;inset:0;background:rgba(10,40,40,.35);z-index:35}
+.sd-top{background:linear-gradient(160deg,#E3F4F3,#F5F9DE);padding:18px 16px 14px;border-bottom:1px solid var(--garis)}
+.sd-logos{display:flex;gap:8px;align-items:center;margin-bottom:10px}.sd-logos img{height:44px;width:auto}
+.sd-tim{font-weight:700;color:var(--merah-tua)}.sd-me{font-size:13px;color:var(--redup)}
+.sd-nav{padding:10px 10px;display:flex;flex-direction:column;gap:2px}
+.sd-nav button{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;padding:11px 12px;border-radius:12px;font-weight:600;font-size:15px;text-align:left;cursor:pointer;color:#344054}
+.sd-nav button:hover{background:var(--abu)}
+.sd-nav button.on{background:var(--tosca-muda);color:var(--merah-tua)}
+.sd-nav button .ic{width:24px;text-align:center;font-size:18px}
+.sd-nav hr{border:0;border-top:1px solid var(--garis);margin:8px 4px}
+.sd-nav .out{color:#C0392B}
+.sd-foot{margin-top:auto;padding:12px 14px 18px;font-size:11.5px;color:var(--redup);text-align:center;line-height:1.5}
+@media (min-width:960px){
+  aside#side{transform:none}
+  #scrim,.burger{display:none!important}
+  body.masuk{padding-left:var(--side)}
+  body.masuk .navbot{left:var(--side)}
+  body.masuk header .logos{display:none}
+}
+header{background:linear-gradient(120deg,#17AFA9,#0E8C88);color:#fff;padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top));
   position:sticky;top:0;z-index:10;border-bottom:4px solid var(--emas)}
 .hd{display:flex;align-items:center;gap:12px;max-width:760px;margin:auto}
 .logos{display:flex;gap:6px;flex:0 0 auto}
 .logos img{height:46px;width:auto;background:#fff;border-radius:10px;padding:3px}
 .logos img.lp{padding:9px 7px}
 .ttl{min-width:0;flex:1}
-@media (max-width:380px){.hd{gap:8px}.hd h1{font-size:13px}.logos img{height:40px}.logos img.lp{padding:7px 5px}}
+@media (max-width:400px){.hd{gap:7px}.hd h1{font-size:13px}.logos img{height:38px}.logos img.lp{padding:7px 5px}}
 .hd small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hd h1{font-size:14.5px;margin:0;line-height:1.2}.hd small{display:block;opacity:.9;font-size:12px;font-weight:400}
 .hd .sp{display:none}
@@ -52,16 +75,16 @@ label.f{display:block;font-weight:600;font-size:14px;margin:12px 0 5px}
 input[type=text],input[type=date],input[type=number],input[type=password],select,textarea{width:100%;padding:11px;border:1.5px solid var(--garis);border-radius:10px;background:#fff}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--biru);box-shadow:0 0 0 3px rgba(0,114,188,.15)}
 textarea{min-height:70px;resize:vertical}
-.req::after{content:" *";color:var(--merah)}
+.req::after{content:" *";color:#D0453B}
 .hint{font-size:12.5px;color:var(--redup)}
 .step-top{display:flex;justify-content:space-between;font-size:13px;color:var(--redup);margin-bottom:6px;gap:8px}
 .bar{height:6px;background:var(--garis);border-radius:9px;overflow:hidden;margin-bottom:10px}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--emas),var(--hijau))}
 .chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px;scrollbar-width:none}
 .chip{flex:0 0 auto;min-width:36px;height:36px;padding:0 8px;border-radius:18px;border:1.5px solid var(--garis);background:#fff;font-weight:700;cursor:pointer;font-size:13px}
 .chip.done{background:var(--hijau-muda);border-color:var(--hijau);color:#05603A}.chip.on{background:var(--merah);border-color:var(--merah);color:#fff}
-.lb{font-size:12px;font-weight:700;color:var(--emas);text-transform:uppercase;letter-spacing:.05em}
+.lb{font-size:12px;font-weight:700;color:#7C8F0E;text-transform:uppercase;letter-spacing:.05em}
 .tanya{font-size:13px;color:var(--redup);font-style:italic}
-.tpg{display:inline-block;background:#FDE0E0;color:var(--merah);font-weight:700;font-size:12px;padding:2px 8px;border-radius:6px;margin:4px 0}
+.tpg{display:inline-block;background:var(--tosca-muda);color:var(--merah-tua);font-weight:700;font-size:12px;padding:2px 8px;border-radius:6px;margin:4px 0}
 .bukti{background:var(--emas-muda);border-left:4px solid var(--emas);padding:9px 12px;border-radius:8px;font-size:14px;margin-top:8px}
 .qbox{margin-top:16px;padding-top:12px;border-top:1px dashed var(--garis)}
 .qt{font-size:14.5px;font-weight:600;margin-bottom:6px}.qt b{color:var(--merah)}
@@ -94,7 +117,7 @@ footer{text-align:center;font-size:12px;color:var(--redup);padding:18px 10px 8px
 .foto img{width:100%;height:110px;object-fit:cover;display:block}.foto .c{padding:6px}
 .sum-item{padding:9px 0;border-bottom:1px solid var(--garis);display:flex;gap:10px;align-items:center;cursor:pointer}
 .sum-item .nn{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex:0 0 auto}
-.nn.ok{background:var(--hijau-muda);color:#05603A}.nn.no{background:#FDECEC;color:var(--merah)}
+.nn.ok{background:var(--hijau-muda);color:#05603A}.nn.no{background:#EEF1F3;color:#667085}
 #printArea{display:none}
 @media print{
   @page{size:A4 portrait;margin:12mm}
@@ -111,11 +134,12 @@ footer{text-align:center;font-size:12px;color:var(--redup);padding:18px 10px 8px
 </head>
 <body>
 <header><div class="hd">
+  <button class="burger hide" id="btnMenu" aria-label="Menu">☰</button>
   <div class="logos"><img src="icons/logo-sulsel.png" alt="Logo Sulawesi Selatan"><img src="icons/logo-poltekkes.png" alt="Poltekkes Kemenkes Makassar" class="lp"></div>
   <div class="ttl"><h1>Monev Capaian Gizi ASS<small id="hdSub">Dinas Kesehatan Provinsi Sulawesi Selatan</small></h1></div>
-  <div class="sp"></div>
-  <button class="ibtn" id="btnMenu" aria-label="Menu">⚙️</button>
 </div></header>
+<aside id="side" class="hide"></aside>
+<div id="scrim" class="hide"></div>
 <main id="app"></main>
 <div class="navbot hide" id="navbot"><div class="in" id="navin"></div></div>
 <div id="printArea"></div>
