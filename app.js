@@ -157,7 +157,7 @@ function loginView(msg) {
 }
 async function muatMaster() {
   const j = await api('login', {});
-  sess = { kode: sess.kode, tim: j.tim, anggota: j.anggota, wilayah: j.wilayah, pengaturan: j.pengaturan, at: Date.now() };
+  sess = { v: SESI_VERSI, kode: sess.kode, tim: j.tim, anggota: j.anggota, wilayah: j.wilayah, pengaturan: j.pengaturan, at: Date.now() };
   saveSess();
   // gabungkan data monev tim dari server (dari HP anggota lain)
   (j.monev || []).forEach(s => {
@@ -592,5 +592,14 @@ window.addEventListener('online', () => { refreshStatus(); sync(); });
 window.addEventListener('offline', refreshStatus);
 setInterval(sync, 60000);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(console.warn);
-window.addEventListener('load', () => { if (sess?.tim) { home(); sync(); } else loginView(); });
+const SESI_VERSI = 2; // naikkan bila format sesi berubah → semua HP diminta login ulang
+window.addEventListener('load', () => {
+  if (sess?.tim && sess.v !== SESI_VERSI) { localStorage.removeItem(K.sess); sess = null; }
+  if (!sess?.tim) return loginView();
+  home(); sync();
+  // cek ulang ke server saat online: nama tim/anggota/wilayah diperbarui, kode yang sudah tidak berlaku dikeluarkan
+  if (navigator.onLine && getUrl()) muatMaster().then(() => { renderSide(); if ($('#bNew')) home(); }).catch(e => {
+    if (/tidak terdaftar/i.test(e.message)) { localStorage.removeItem(K.sess); sess = null; loginView('Kode tim lama sudah tidak berlaku. Silakan masuk dengan kode baru (nama kabupaten/kota, mis. BARRU).'); }
+  });
+});
 })();
