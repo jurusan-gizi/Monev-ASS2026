@@ -91,9 +91,19 @@ function cariTim(kode) {
   const kab = [...new Set(r.flatMap(x => String(x[2]).split(/[,;]/).map(s => s.trim()).filter(Boolean)))];
   return { kode: kode, nama: r[0][1] || kode, kab: kab, anggota: r.map(x => ({ nama: x[3], pangkat: x[4], nip: x[5] })).filter(a => a.nama) };
 }
+/* Nama kabupaten dicocokkan longgar: "Kabupaten Barru" = "Kab. Barru" = "BARRU" */
+function normKab(x) { return String(x || '').toLowerCase().replace(/^\s*(kabupaten|kab\.?|kota)\s+/, '').replace(/\s+/g, ' ').trim(); }
+function kolom(h, kata, cadangan) {
+  const i = h.findIndex(x => kata.some(k => String(x).toLowerCase().indexOf(k) >= 0));
+  return i >= 0 ? i : cadangan;
+}
 function login(tim) {
-  const wilayah = rows(SH.WIL).filter(x => tim.kab.indexOf(String(x[0]).trim()) >= 0)
-    .map(x => ({ kab: String(x[0]).trim(), kec: String(x[1]).trim(), desa: String(x[2]).trim() })).filter(w => w.desa);
+  const sh = SpreadsheetApp.getActive().getSheetByName(SH.WIL);
+  const data = sh && sh.getLastRow() > 1 ? sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getDisplayValues() : [[]];
+  const h = data[0], ik = kolom(h, ['kab', 'kota'], 0), ic = kolom(h, ['kec'], 1), id = kolom(h, ['desa', 'kel'], 2);
+  const peta = {}; tim.kab.forEach(k => peta[normKab(k)] = k);
+  const wilayah = data.slice(1).map(x => ({ kab: peta[normKab(x[ik])], kec: String(x[ic] || '').trim(), desa: String(x[id] || '').trim() }))
+    .filter(w => w.kab && w.kec && w.desa);
   const pengaturan = {}; rows(SH.SET).forEach(x => { if (x[0]) pengaturan[String(x[0]).trim()] = x[1]; });
   return { ok: true, tim: { kode: tim.kode, nama: tim.nama, kab: tim.kab }, anggota: tim.anggota, wilayah: wilayah, pengaturan: pengaturan,
     monev: ambilJson(SH.MONEV, tim.kode), laporan: ambilJson(SH.LAP, tim.kode) };

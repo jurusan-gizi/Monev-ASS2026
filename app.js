@@ -56,7 +56,7 @@ function setNav(btns) {
   navin.innerHTML = btns.map((b, i) => `<button class="btn ${b.cls}" data-i="${i}">${b.text}</button>`).join('');
   navin.querySelectorAll('button').forEach(el => el.onclick = () => btns[el.dataset.i].fn());
 }
-const footer = () => `<footer>Developed : <b>Manjilala, S.Gz, M.Gizi</b><br>Poltekkes Kemenkes Makassar | DPD PERSAGI Sulsel</footer>`;
+const footer = () => `<footer><img src="icons/logo-poltekkes.png" alt="Poltekkes Kemenkes Makassar" style="height:34px;display:block;margin:0 auto 8px">Developed : <b>Manjilala, S.Gz, M.Gizi</b><br>Poltekkes Kemenkes Makassar | DPD PERSAGI Sulsel</footer>`;
 Object.assign(A, { toast, modal, closeModal, confirmBox, setNav, footer, app });
 
 /* Kamus: tandai istilah agar bisa diketuk */
@@ -80,7 +80,7 @@ A.api = api;
 function loginView(msg) {
   setNav(null);
   app.innerHTML = `<div class="card" style="margin-top:20px;text-align:center">
-    <img src="icons/logo-sulsel.png" style="width:84px"><h3 class="t" style="margin-top:8px">Monitoring Evaluasi Capaian<br>Program Gizi Aksi Stop Stunting</h3>
+    <div style="display:flex;justify-content:center;align-items:center;gap:16px"><img src="icons/logo-sulsel.png" style="width:72px"><img src="icons/logo-poltekkes.png" style="height:48px"></div><h3 class="t" style="margin-top:8px">Monitoring Evaluasi Capaian<br>Program Gizi Aksi Stop Stunting</h3>
     <p class="hint">Masukkan kode tim dari Dinas Kesehatan Provinsi. Login pertama perlu internet; setelah itu aplikasi bisa dipakai tanpa sinyal.</p>
     <input type="password" id="kode" placeholder="Kode tim" style="text-align:center;font-size:20px;letter-spacing:2px" autocomplete="off">
     ${msg ? `<div class="warn">${esc(msg)}</div>` : ''}
@@ -246,7 +246,7 @@ function viewId(r, i) {
     <label class="f req">Tim verifikasi</label><input type="text" id="tim" value="${esc(r.tim)}">
     <label class="f">Pendamping desa/kader</label><input type="text" id="pendamping" value="${esc(r.pendamping)}">
     <label class="f">Periode data</label><input type="text" id="periode" value="${esc(r.periode)}" placeholder="mis. Minggu ke-4 (per 5 November 2026)">
-    ${!W.length ? '<div class="warn">Data wilayah kosong. Buka ⚙️ → Perbarui data master saat ada internet.</div>' : ''}
+    ${!W.length ? `<div class="warn">Belum ada data kecamatan/desa untuk <b>${esc(sess.tim.kab.join(', '))}</b>. Pastikan desanya sudah diisi di sheet MASTER_WILAYAH, lalu buka ⚙️ → <b>Perbarui data master</b> saat ada internet.</div>` : ''}
   </div>${footer()}`;
   $('#kab').onchange = e => { r.kab = e.target.value; r.kec = ''; r.desa = ''; touch(r); step(r, i); };
   $('#kec').onchange = e => { r.kec = e.target.value; r.desa = ''; touch(r); step(r, i); };
